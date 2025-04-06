@@ -3,3 +3,6 @@ Fyers_v001
 fyerslogin.ipynb
 login.ipynb
 vault.exe
+LibertyFlow/
+**/*.pyc
+*.pyc

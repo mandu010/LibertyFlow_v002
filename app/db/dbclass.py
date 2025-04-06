@@ -10,7 +10,7 @@ class LibertyDB:
         self.logger= get_logger("DB")
 
     async def connect(self):
-        dsn=f"postgresql://{settings.postgres.USER}:{settings.postgres.PASSWORD}@{settings.postgres.HOST}:{settings.postgres.PORT}/{settings.postgres.DB}"
+        dsn=f"postgresql://{settings.postgres.POSTGRES_USER}:{settings.postgres.POSTGRES_PASSWORD}@{settings.postgres.POSTGRES_HOST}:{settings.postgres.PORT}/{settings.postgres.POSTGRES_DB}"
         try:
             self.pool = await asyncpg.create_pool(
             min_size=1,

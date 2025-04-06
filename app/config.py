@@ -13,11 +13,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 class PostgresSettings(BaseSettings):
-    HOST: str = os.getenv("POSTGRES_HOST", "H59IE0C7SM-100")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "H59IE0C7SM-100")
     PORT: int = int(os.getenv("POSTGRES_PORT"))
-    USER: str = os.getenv("POSTGRES_USER")
-    PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
-    DB: str = os.getenv("POSTGRES_DB")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB")
     POOL_MIN_SIZE: int = int(os.getenv("POSTGRES_POOL_MIN_SIZE"))
     POOL_MAX_SIZE: int = int(os.getenv("POSTGRES_POOL_MAX_SIZE"))
 
