@@ -6,3 +6,4 @@ vault.exe
 LibertyFlow/
 **/*.pyc
 *.pyc
+*.ipynb
