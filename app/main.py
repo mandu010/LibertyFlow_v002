@@ -10,6 +10,9 @@ from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
 from app.nifty_tf.range import LibertyRange
+from app.nifty_tf.trigger import LibertyTrigger
+
+
 
 logger = get_logger("MAIN")
 
@@ -37,7 +40,6 @@ async def main():
             logger.error("Fyers client initialization failed")
             return 1
         range = LibertyRange(db, fyers)
-        await range.read_range()
         range_val = await range.read_range()
         if range_val is not None:
             await range.update_range(range_val)
@@ -48,13 +50,12 @@ async def main():
         # This is a simple way to keep the application running
         # Replace this with your actual application logic later
         while True:
-            sql = "SELECT * FROM nifty.range"
-            fetched = await db.fetch_query(sql)
-            logger.info(f"Fetched data: {fetched}")
             #await asyncio.sleep(60)
-
-            range = LibertyRange(db, fyers)
+            #range = LibertyRange(db, fyers)
             await range.read_range()
+            trigger = LibertyTrigger(db, fyers)
+            await trigger.pct_trigger(range_val)
+            await trigger.ATR(range_val)
 
             break
             

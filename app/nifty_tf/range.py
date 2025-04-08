@@ -99,4 +99,3 @@ class LibertyRange:
         except Exception as e:
             self.logger.error(f"update_range(): Error updating range in DB: {e}", exc_info=True)
             return None
-
