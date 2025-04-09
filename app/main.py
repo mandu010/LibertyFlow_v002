@@ -1,21 +1,14 @@
 import asyncio
-import logging
 import sys
-import os
 import signal
 
-from app.config import settings
 from app.utils.logging import get_logger
 from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
-from app.nifty_tf.range import LibertyRange
-from app.nifty_tf.trigger import LibertyTrigger
-
-
+from app.nifty_tf.strategy_main import LibertyFlow
 
 logger = get_logger("MAIN")
-
 
 async def main():
     #global db, fyers_client
@@ -39,25 +32,16 @@ async def main():
         else:
             logger.error("Fyers client initialization failed")
             return 1
-        range = LibertyRange(db, fyers)
-        range_val = await range.read_range()
-        if range_val is not None:
-            await range.update_range(range_val)
         
+        # Initialize Strategy
+        strategy = LibertyFlow(db, fyers)
+
         # Keep application running until interrupted
         logger.info("Application is now running. Press CTRL+C to exit.")
         
         # This is a simple way to keep the application running
         # Replace this with your actual application logic later
-        while True:
-            #await asyncio.sleep(60)
-            #range = LibertyRange(db, fyers)
-            await range.read_range()
-            trigger = LibertyTrigger(db, fyers)
-            await trigger.pct_trigger(range_val)
-            await trigger.ATR(range_val)
-
-            break
+        await strategy.run()
             
     except Exception as e:
         logger.error(f"Error in main function: {str(e)}", exc_info=True)

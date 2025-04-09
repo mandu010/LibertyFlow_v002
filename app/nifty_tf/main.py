@@ -1,1 +1,0 @@
-from app.services.nifty_tf import nifty_tf

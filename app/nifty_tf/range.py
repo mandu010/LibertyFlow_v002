@@ -25,7 +25,6 @@ class LibertyRange:
     
     async def update_range(self, range) -> bool:
         try:
-            symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT"
             data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
                   "resolution":"1D",
                   "date_format":"1",
@@ -41,7 +40,7 @@ class LibertyRange:
                     today_candle_data["candles"], 
                     columns=["timestamp", "open", "high", "low", "close", "volume"]
                     )
-                ### Withing Range
+                ### Within Range
                 if df.iloc[0]['close'] < (range['high'] + range['high']*.001) and df.iloc[0]['close'] > (range['low'] + range['low']*.001):
                     self.logger.info(f"update_range(): Today's candle is within the range")
                     value = {
