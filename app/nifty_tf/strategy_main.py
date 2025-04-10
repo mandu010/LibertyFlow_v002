@@ -30,14 +30,17 @@ class LibertyFlow:
                 );'''
             await self.db.execute_query(sql)
 
-            await self.trigger.pct_trigger(range_val)
+            pctTrigger = await self.trigger.pct_trigger(range_val)
+            
+            if pctTrigger == False:
+                atrTrigger = await self.trigger.ATR()
 
-            await self.trigger.ATR()
+            if atrTrigger == False:
+                triggered = await self.trigger.check_triggers_until_cutoff(range_val)
+                if not triggered:
+                    self.logger.info("Not Triggered -> Exit")
+                    return False
 
-            triggered = await self.trigger.check_triggers_until_cutoff(range_val)
-            if not triggered:
-                self.logger.info("Not Triggered -> Exit")
-                return False
 
             await self.db.close()            
 
