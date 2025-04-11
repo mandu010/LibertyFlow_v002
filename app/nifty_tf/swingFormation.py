@@ -19,49 +19,52 @@ class LibertySwing():
     
     async def SWH(self):
         try:
-            self.logger.info("SWH(): Triggered")
+            self.logger.info("SWH(): Starting to check SWH Formation")
             candleList = []
                             
             # Continue checking every 5 minutes until 01:00 PM
             while True:
                 # Hard stop at 13:00 PM
-                if datetime.now().time() >= time(13, 00):
-                    print("Reached cutoff time 13:00 PM. Stopping Swing Formation Check checks.")
+                if datetime.now().time() >= time(15, 00): ### Change to 12:25
+                    print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWH(): Breaced 1 PM.")
                     return False
-                
 
                 # Check if trigger condition is met
                 df_data = await self.LibertyMarketData.fetch_5min_data()
+                df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(self.trigger_time).time()]
                 referenceCandle = df_data[df_data['timestamp'].dt.time == pd.to_datetime(self.trigger_time).time()]
-                candleList.append(filtered_df_data.iloc[-2])
-                combined_df = pd.concat(candleList, ignore_index=True)
 
-                if referenceCandle.iloc[0]['high'] >= combined_df['high'].max():
+                #candleList.append(filtered_df_data.iloc[-2].to_frame().T)
+                #combined_df = pd.concat(candleList, ignore_index=True)
+                candleList.append(filtered_df_data.iloc[-2]['high'])
+
+                #if referenceCandle.iloc[0]['high'] >= combined_df['high'].max():
+                if referenceCandle.iloc[0]['high'] >= max(candleList):
                     if len(candleList) >= 6:
                         self.logger.info("SWH(): Swing High Found")       
                         swhPrice = math.ceil(referenceCandle.iloc[0]['high'])              
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         ### Check needs to be done here
                         sqlTrue = f'''UPDATE nifty.trigger_status 
-                        SET swhPrice = {swhPrice}, swhTime = '{referenceCandle['timestamp'].iloc[0]}'
+                        SET "swhPrice" = {swhPrice}, "swhTime" = '{str(referenceCandle.iloc[0]['timestamp'].time())}'
                         WHERE date = CURRENT_DATE '''
                         await self.db.execute_query(sqlTrue)
-                        
+
                         ### Sabse pehele to Breakout Method ko Call kar.
                         ### Breakout method ne websocket se connect karna chahea.
                         ### Update DB with SWH
                 else:
                     referenceCandle = filtered_df_data.iloc[-2]
-                    self.trigger_time = filtered_df_data.iloc[-2]['timestamp'].time()
+                    self.trigger_time = str(filtered_df_data.iloc[-2]['timestamp'].time())
                     candleList = []                    
 
 
                 # Wait for next 5-minute interval
                 next_check = await self.trigger.get_next_5min_interval()
                 await self.trigger.wait_until_time(next_check)
-                await self.trigger.wait_until_time(await self.get_next_5min_interval())
             
         except Exception as e:
             self.logger.error(f"SWH(): Error: {e}", exc_info=True)
@@ -82,6 +85,7 @@ class LibertySwing():
 
                 # Check if trigger condition is met
                 df_data = await self.LibertyMarketData.fetch_5min_data()
+                df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(self.trigger_time).time()]
                 referenceCandle = df_data[df_data['timestamp'].dt.time == pd.to_datetime(self.trigger_time).time()]
                 candleList.append(filtered_df_data.iloc[-2])

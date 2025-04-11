@@ -9,3 +9,4 @@ LibertyFlow/
 *.ipynb
 *.log
 cloc-2.04.exe
+*.csv
