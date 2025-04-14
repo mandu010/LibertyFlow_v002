@@ -51,5 +51,18 @@ class LibertyDB:
         except Exception as e:
             self.logger.error(f"Error executing fetch_query: {e}")
 
+    ### Check Trigger status and insert if not present
+    async def check_trigger_status(self, sql=None):
+        try:
+            if sql is None:
+                return None
+            self.logger.info(f"Executing fetch SQL query: {sql}")
+            # Executing the SQL query 
+            async with self.pool.acquire() as connection:
+                result = await connection.fetch(sql)
+                return result
+        except Exception as e:
+            self.logger.error(f"Error executing fetch_query: {e}")
+
 
 db = LibertyDB()

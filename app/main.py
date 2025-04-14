@@ -1,8 +1,8 @@
 import asyncio
 import sys
-import signal
 
 from app.utils.logging import get_logger
+import signal
 from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
@@ -26,6 +26,8 @@ async def main():
         # Initialize Fyers client
         logger.info("Initializing Fyers client...")
         fyers = await fyersClient.connect()
+        #await fyersClient.connect()
+        #if (await fyersClient.connect()) is not None:
         if fyers is not None:
             print("Fyers client connected successfully")
             logger.info("Fyers client initialized")

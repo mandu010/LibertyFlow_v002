@@ -17,15 +17,15 @@ class LibertySwing():
         self.trigger_index = trigger_index
         self.trigger_time = trigger_time
     
-    async def SWH(self):
+    async def SWH(self) -> None:
         try:
             self.logger.info("SWH(): Starting to check SWH Formation")
             candleList = []
                             
-            # Continue checking every 5 minutes until 01:00 PM
+            # Continue checking every 5 minutes until 12:25 PM
             while True:
-                # Hard stop at 13:00 PM
-                if datetime.now().time() >= time(15, 00): ### Change to 12:25
+                # Hard stop at 12:25 PM
+                if datetime.now().time() >= time(12, 25): ### Change to 12:25
                     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWH(): Breaced 1 PM.")
                     return False
@@ -70,51 +70,54 @@ class LibertySwing():
             self.logger.error(f"SWH(): Error: {e}", exc_info=True)
             print(f"SWH(): Error: {e}")
 
-    async def SWL(self):
+    async def SWL(self) -> None:
         try:
-            self.logger.info("SWL(): Triggered")
+            self.logger.info("SWL(): Starting to check SWL Formation")
             candleList = []
                             
             # Continue checking every 5 minutes until 01:00 PM
             while True:
                 # Hard stop at 13:00 PM
-                if datetime.now().time() >= time(13, 00):
-                    print("Reached cutoff time 13:00 PM. Stopping Swing Formation Check checks.")
+                if datetime.now().time() >= time(15, 00): ### Change to 12:25
+                    print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWL(): Breaced 1 PM.")
                     return False
 
                 # Check if trigger condition is met
                 df_data = await self.LibertyMarketData.fetch_5min_data()
                 df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(self.trigger_time).time()]
                 referenceCandle = df_data[df_data['timestamp'].dt.time == pd.to_datetime(self.trigger_time).time()]
-                candleList.append(filtered_df_data.iloc[-2])
-                combined_df = pd.concat(candleList, ignore_index=True)
 
-                if referenceCandle.iloc[0]['low'] <= combined_df['low'].min():
+                #candleList.append(filtered_df_data.iloc[-2].to_frame().T)
+                #combined_df = pd.concat(candleList, ignore_index=True)
+                candleList.append(filtered_df_data.iloc[-2]['high'])
+
+                #if referenceCandle.iloc[0]['high'] >= combined_df['high'].max():
+                if referenceCandle.iloc[0]['high'] >= max(candleList):
                     if len(candleList) >= 6:
-                        self.logger.info("SWL(): Swing High Found")                     
-                        swlPrice = math.floor(referenceCandle.iloc[0]['low'])              
+                        self.logger.info("SWL(): Swing High Found")       
+                        swlPrice = math.ceil(referenceCandle.iloc[0]['high'])              
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         ### Check needs to be done here
                         sqlTrue = f'''UPDATE nifty.trigger_status 
-                        SET swlPrice = {swlPrice}, swlTime = '{referenceCandle['timestamp'].iloc[0]}'
+                        SET "swlPrice" = {swlPrice}, "swlTime" = '{str(referenceCandle.iloc[0]['timestamp'].time())}'
                         WHERE date = CURRENT_DATE '''
-                        await self.db.execute_query(sqlTrue)                        
+                        await self.db.execute_query(sqlTrue)
+
                         ### Sabse pehele to Breakout Method ko Call kar.
                         ### Breakout method ne websocket se connect karna chahea.
                         ### Update DB with SWL
                 else:
                     referenceCandle = filtered_df_data.iloc[-2]
-                    self.trigger_time = filtered_df_data.iloc[-2]['timestamp'].time()
+                    self.trigger_time = str(filtered_df_data.iloc[-2]['timestamp'].time())
                     candleList = []                    
 
 
                 # Wait for next 5-minute interval
                 next_check = await self.trigger.get_next_5min_interval()
                 await self.trigger.wait_until_time(next_check)
-                await self.trigger.wait_until_time(await self.get_next_5min_interval())
-                await asyncio.sleep(5) ### Adding this additional 5 second wait to make sure next candle gets started is taken up by Broker
             
         except Exception as e:
             self.logger.error(f"SWL(): Error: {e}", exc_info=True)

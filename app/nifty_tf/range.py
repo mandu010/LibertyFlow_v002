@@ -45,7 +45,6 @@ class LibertyRange:
                     self.logger.info(f"update_range(): Today's candle is within the range")
                     value = {
                             "datetime":datetime.now().strftime('%Y-%m-%d'),
-                            "open":range['open'],
                             "high":range['high'],
                             "low":range['low'],
                             "pdc":df.iloc[0]['close']
@@ -62,7 +61,6 @@ class LibertyRange:
                     self.logger.info(f"update_range(): Today's candle is above the range")
                     value = {
                             "datetime":datetime.now().strftime('%Y-%m-%d'),
-                            "open":df.iloc[0]['open'],
                             "high":df.iloc[0]['high'],
                             "low":df.iloc[0]['low'],
                             "pdc":df.iloc[0]['close']
@@ -79,7 +77,6 @@ class LibertyRange:
                     self.logger.info(f"update_range(): Today's candle is below the range")
                     value = {
                             "datetime":datetime.now().strftime('%Y-%m-%d'),
-                            "open":df.iloc[0]['open'],
                             "high":df.iloc[0]['high'],
                             "low":df.iloc[0]['low'],
                             "pdc":df.iloc[0]['close']
@@ -97,4 +94,23 @@ class LibertyRange:
 
         except Exception as e:
             self.logger.error(f"update_range(): Error updating range in DB: {e}", exc_info=True)
+            return None
+        
+    async def read_trigger_status(self):
+        try:
+            sql = '''
+                SELECT pct_trigger, atr, range FROM nifty.trigger_status
+                where date = CURRENT_DATE
+                order by ctid DESC
+                limit 1
+            '''
+            trigger_status = await self.db.fetch_query(sql)
+            if trigger_status is None:
+                self.logger.info(f"read_trigger_status(): No trigger status found in DB")
+                return None
+            trigger_status = json.loads(trigger_status[0]['trigger_status'])
+            self.logger.info(f"read_trigger_status(): Fetched current trigger from DB")
+            return trigger_status
+        except Exception as e:
+            self.logger.error(f"read_trigger_status(): Error fetching current trigger status from DB: {e}", exc_info=True)
             return None

@@ -21,7 +21,7 @@ class LibertyFlow:
         try:
             self.logger.info("LibertyFlow run started")
             range_val = await self.range.read_range()
-            pctTrigger, atrTrigger, triggered = False, False, False ### Replace these with pulling status from DB Later
+            pctTrigger, atrTrigger, rangeTrigger = False, False, False ### Replace these with pulling status from DB Later
             #
             # Happy Path-> Get the status of strategy 1st. If Awaiting Trigger then insert trigger_status with today's date first
             #
@@ -32,17 +32,32 @@ class LibertyFlow:
                 );'''
             await self.db.execute_query(sql)
 
-            pctTrigger = await self.trigger.pct_trigger(range_val)
-            
+            triggerStatusSql = '''
+                    SELECT pct_trigger, atr, range FROM nifty.trigger_status
+                    where date = CURRENT_DATE
+                    order by ctid DESC
+                    limit 1
+                  '''
+            triggerStatus = await self.db.fetch_query(triggerStatusSql)
+            if  len(triggerStatus) != 0:
+                pctTrigger = triggerStatusSql[0]['pct_trigger']
+                atrTrigger = triggerStatusSql[0]['atr']
+                rangeTrigger = triggerStatusSql[0]['range']
+
             if pctTrigger == False:
+                pctTrigger = await self.trigger.pct_trigger(range_val)
+            
+            if pctTrigger == False and atrTrigger == False:
                 atrTrigger = await self.trigger.ATR()
 
-            if pctTrigger == False and atrTrigger == False:
-                triggered = await self.trigger.check_triggers_until_cutoff(range_val)
-                if not triggered:
-                    self.logger.info("Not Triggered -> Exit")
+            if pctTrigger == False and atrTrigger == False and rangeTrigger == False:
+                rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val)
+                if not rangeTrigger:
+                    self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
                     return False
-            swingHigh = await self.swing.SWH()
+            if pctTrigger or atrTrigger or rangeTrigger:
+                swingHigh = await self.swing.SWH() ### Need to call 
+                swingLow = await self.swing.SWL() ### Need to call 
 
 
             await self.db.close()            
