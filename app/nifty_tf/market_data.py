@@ -9,17 +9,20 @@ class LibertyMarketData:
         self.logger= get_logger("Market Data")
         self.db= db
         self.fyers= fyers
+        self.symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT"
+        #self.symbol = "MCX:NATURALGAS25APRFUT" ### For Testing outside of market hours
 
     async def fetch_5min_data(self):
         try:
             data={
-                  "symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+                  "symbol":self.symbol,
                   "resolution":"5",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),
                   "range_to":datetime.now().strftime('%Y-%m-%d'),
                   "cont_flag":1
                   }
+            print(data)
             min5_data_today = self.fyers.history(data)
             if min5_data_today['code'] == 200  and "candles" in min5_data_today:
                 self.logger.info(f"fetch_5min_data(): Fetched today's 5min candle data.")
@@ -37,7 +40,7 @@ class LibertyMarketData:
     async def fetch_1min_data(self):
         try:
             data={
-                  "symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+                  "symbol":self.symbol,
                   "resolution":"1",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),
@@ -62,7 +65,7 @@ class LibertyMarketData:
         try:
             for i in builtins.range(1, 6):
                 data={
-                        "symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+                        "symbol":self.symbol,
                         "resolution":"5",
                         "date_format":"1",
                         "range_from":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),

@@ -65,4 +65,24 @@ class LibertyDB:
             self.logger.error(f"Error executing fetch_query: {e}")
 
 
+    ### Get Trigger Time
+    async def fetch_trigger_time(self):
+        try:
+            sql = '''
+                    SELECT trigger_time FROM nifty.trigger_status
+                    where date = CURRENT_DATE
+                    order by ctid DESC
+                    limit 1                
+                ''' 
+            if sql is None:
+                return None
+            self.logger.info(f"Fetching Trigger Time: {sql}")
+            # Executing the SQL query 
+            async with self.pool.acquire() as connection:
+                result = await connection.fetch(sql)
+                return result
+        except Exception as e:
+            self.logger.error(f"Error Fetching Trigger Time: {e}")
+
+
 db = LibertyDB()

@@ -31,7 +31,8 @@ class LibertyTrigger():
             change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
             if change > 0 and change >=0.4:
                 self.logger.info(f"pct_trigger(): Triggered")
-                await self.db.execute_query(sqlTrue)                     
+                await self.db.execute_query(sqlTrue) 
+                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
                 return True
             elif change < 0 and change <= -0.4:
                     self.logger.info(f"pct_trigger(): Triggered")
@@ -69,6 +70,7 @@ class LibertyTrigger():
             self.logger.info(f"ATR(): ATR Value: {atrVal}")
             if atrVal >= 300:
                 await self.db.execute_query(sqlTrue)
+                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
                 return True
             else:
                 self.logger.info(f"ATR(): ATR Value not met. Go to Range break trigger.")
@@ -91,6 +93,7 @@ class LibertyTrigger():
                 SET range = TRUE, trigger_index = 0, trigger_time = '{df['timestamp'].iloc[0]}'
                 WHERE date = CURRENT_DATE '''
                 await self.db.execute_query(sql)
+                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
                 return True
             else:
                 self.logger.info(f"range_break(): Not Triggered.")                    
@@ -140,7 +143,7 @@ class LibertyTrigger():
             # Wait for next 5-minute interval
             next_check = await self.get_next_5min_interval()
             await self.wait_until_time(next_check)
-            await self.wait_until_time(await self.get_next_5min_interval())
+            #await self.wait_until_time(await self.get_next_5min_interval())
             
             # Check if trigger condition is met
             is_triggered = await self.range_break(range_val)
@@ -194,7 +197,8 @@ class LibertyTrigger():
         now = datetime.now()
         current_minute = now.minute
         # Calculate the next 5-minute mark
-        next_5min = ((current_minute // 5) + 1) * 5
+        #next_5min = ((current_minute // 5) + 1) * 5
+        next_5min = ((current_minute // 1) + 1) * 1 #### Comment this later
         
         # Handle hour rollover
         new_hour = now.hour
