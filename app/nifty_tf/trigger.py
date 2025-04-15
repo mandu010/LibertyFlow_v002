@@ -49,6 +49,13 @@ class LibertyTrigger():
         
     async def ATR(self) -> bool:
         try:
+            while True:
+                if datetime.now().time() < time(9, 20):
+                    next_check = await self.get_next_5min_interval()
+                    await self.wait_until_time(next_check)
+                    break
+                else:
+                    break
             df_today = await self.LibertyMarketData.fetch_5min_data()
             df_today['timestamp'] = pd.to_datetime(df_today['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')         
 
@@ -197,8 +204,22 @@ class LibertyTrigger():
         now = datetime.now()
         current_minute = now.minute
         # Calculate the next 5-minute mark
-        #next_5min = ((current_minute // 5) + 1) * 5
-        next_5min = ((current_minute // 1) + 1) * 1 #### Comment this later
+        next_5min = ((current_minute // 5) + 1) * 5
+        
+        # Handle hour rollover
+        new_hour = now.hour
+        if next_5min >= 60:
+            new_hour += 1
+            next_5min -= 60
+            
+        return time(new_hour, next_5min)
+    
+    async def get_next_1min_interval(self):
+        """Get the next 5-minute interval time"""
+        now = datetime.now()
+        current_minute = now.minute
+        # Calculate the next 5-minute mark
+        next_5min = ((current_minute // 1) + 1) * 1 
         
         # Handle hour rollover
         new_hour = now.hour

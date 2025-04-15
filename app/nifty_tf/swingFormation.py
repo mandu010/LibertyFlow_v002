@@ -25,18 +25,17 @@ class LibertySwing():
             # Continue checking every 5 minutes until 12:25 PM
             while True:
                 #Hard stop at 12:25 PM
-                # if datetime.now().time() >= time(12, 25): ### Change to 12:25
-                #     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
-                #     self.logger.info("SWH(): Breaced 1 PM.")
-                #     return False
+                if len(candleList) == 0 and datetime.now().time() >= time(12, 25): ### Change to 12:25
+                    print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
+                    self.logger.info("SWH(): Breaced 12.25 PM.")
+                    return False
 
                 # Check if trigger condition is met
-                #df_data = await self.LibertyMarketData.fetch_5min_data()
-                df_data = await self.LibertyMarketData.fetch_1min_data()
+                df_data = await self.LibertyMarketData.fetch_5min_data()
+                #df_data = await self.LibertyMarketData.fetch_1min_data()
                 df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
 
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(self.trigger_time).time()]
-                filtered_df_data = filtered_df_data[:-1]
                 referenceCandle = df_data[df_data['timestamp'].dt.time == pd.to_datetime(self.trigger_time).time()]
                 #candleList.append(filtered_df_data.iloc[-2].to_frame().T)
                 #combined_df = pd.concat(candleList, ignore_index=True)
@@ -57,9 +56,9 @@ class LibertySwing():
                         ### Breakout method ne websocket se connect karna chahea.
                         ### Update DB with SWH
                 else:
-                    # Making the Last candle as the reference candle
-                    referenceCandle = filtered_df_data.iloc[-1]
-                    self.trigger_time = str(filtered_df_data.iloc[-1]['timestamp'].time())
+                    # Making the 2nd last candle as reference candle, because -1 is always in making
+                    referenceCandle = filtered_df_data.iloc[-2]
+                    self.trigger_time = str(filtered_df_data.iloc[-2]['timestamp'].time())
                     candleList = []   
                     print("In side else")             
                     print(f"CandleList: \n{candleList}\n Reference Candle:\n{referenceCandle}\n Filtered Data:\n {filtered_df_data}")    

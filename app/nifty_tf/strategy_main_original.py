@@ -62,7 +62,7 @@ class LibertyFlow:
                     self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
                     return False
             if pctTrigger or atrTrigger or rangeTrigger:
-                if datetime.now().time() >= time(09, 25, 00):
+                if datetime.now().time() < time(09, 25, 00):
                     next_check = await self.trigger.get_next_5min_interval()
                     await self.trigger.wait_until_time(next_check)
                     next_check = await self.trigger.get_next_5min_interval()
@@ -72,6 +72,10 @@ class LibertyFlow:
                 trigger_time = await self.db.fetch_trigger_time()
                 if trigger_time is not None and len(trigger_time) != 0:
                     trigger_time = trigger_time[0]['trigger_time']
+                ### Adding 5 mins to trigger time 
+                next_check = await self.trigger.get_next_5min_interval()
+                await self.trigger.wait_until_time(next_check)
+                await asyncio.sleep(5) ### Adding 5 seconds buffer    
                 swing = LibertySwing(self.db, self.fyers, trigger_index=0,trigger_time=trigger_time)
                 swingHigh = await swing.SWH() ### Need to call 
                 swingLow = await swing.SWL() ### Need to call 
