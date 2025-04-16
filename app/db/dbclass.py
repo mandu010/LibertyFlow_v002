@@ -84,5 +84,20 @@ class LibertyDB:
         except Exception as e:
             self.logger.error(f"Error Fetching Trigger Time: {e}")
 
+    async def update_status(self,status):
+        try:
+            sql =f'''
+                UPDATE nifty.status
+                SET status = '{status}'
+                WHERE date = CURRENT_DATE
+                '''
+            self.logger.info(f"Updating Status to {status}.")
+            # Executing the SQL query 
+            async with self.pool.acquire() as connection:
+                result = await connection.execute(sql)
+                return True
+        except Exception as e:
+            self.logger.error(f"Error executing execute_query: {e}")
+
 
 db = LibertyDB()

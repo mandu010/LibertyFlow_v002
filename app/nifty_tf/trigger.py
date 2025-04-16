@@ -78,6 +78,7 @@ class LibertyTrigger():
             if atrVal >= 300:
                 await self.db.execute_query(sqlTrue)
                 await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
+                print(atrVal)
                 return True
             else:
                 self.logger.info(f"ATR(): ATR Value not met. Go to Range break trigger.")
