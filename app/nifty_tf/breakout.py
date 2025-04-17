@@ -29,8 +29,8 @@ class LibertyBreakout:
         self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
         
         # Get the futures symbol - would need to be determined dynamically in real implementation
-        #self.futures_symbol = "NSE:NIFTY25APRFUT"  # Example - should be current month
-        self.futures_symbol = "MCX:NATURALGAS25APRFUT"  ### Remove this later
+        self.futures_symbol = "NSE:NIFTY25APRFUT"  # Example - should be current month
+        #self.futures_symbol = "MCX:NATURALGAS25APRFUT"  ### Remove this later
     
     async def monitor_breakouts(self, swh_price=None, swl_price=None):
         """
@@ -51,11 +51,6 @@ class LibertyBreakout:
             if swl_price is not None:
                 self.swl_price = swl_price
                 self.logger.info(f"Updated swing low price: {self.swl_price}")
-            
-            # If already running, just update the prices and return
-            if self.is_running:
-                self.logger.info(f"Breakout monitoring already running, updated with SWH: {self.swh_price}, SWL: {self.swl_price}")
-                return
             
             # Start monitoring
             self.is_running = True

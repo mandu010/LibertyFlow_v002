@@ -40,11 +40,6 @@ class LibertyFlow:
                 );'''
             await self.db.execute_query(sql)            
             range_val = await self.range.read_range()
-            # range_val = {'low': 299.5,
-            #                 'pdc': 304.2,
-            #                 'high': 304,
-            #                 'datetime': '09-04-2025'}
-            #swingHigh = await self.swing.SWH() ### Need to call 
             sqlStatus = '''INSERT INTO nifty.status (date, status)
                 SELECT CURRENT_DATE,'Awaiting Trigger'
                 WHERE NOT EXISTS (
@@ -64,25 +59,26 @@ class LibertyFlow:
                 if triggerStatus[0]['atr'] is not None: atrTrigger = bool(triggerStatus[0]['atr'])
                 if triggerStatus[0]['range'] is not None: rangeTrigger = bool(triggerStatus[0]['range'])
 
-            # while True:
-            #     if datetime.now().time() < time(9, 15):
-            #         next_check = await self.trigger.get_next_5min_interval()
-            #         await self.trigger.wait_until_time(next_check)
-            #         break
-            #     else:
-            #         #break
-            #         continue ### Remove this later
-            #await asyncio.sleep(5)
+            ### Wait until Market start
+            while True:
+                if datetime.now().time() < time(9, 15):
+                    next_check = await self.trigger.get_next_5min_interval()
+                    await self.trigger.wait_until_time(next_check)
+                    break
+                else:
+                    break
+                    #continue ### Remove this later
+            await asyncio.sleep(5)
             if not any([pctTrigger]):
                 pctTrigger = await self.trigger.pct_trigger(range_val)            
 
             if not any([pctTrigger, atrTrigger]):
                 atrTrigger = await self.trigger.ATR()
 
-            #if not any([pctTrigger, atrTrigger, rangeTrigger]): ### Remove this later
-                #rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val) ### Remove this later
+            if not any([pctTrigger, atrTrigger, rangeTrigger]): ### Remove this later
+                rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val) ### Remove this later
 
-            pctTrigger = True ### Remove this later
+            #pctTrigger = True ### Remove this later
             ### Exiting if not Triggered
             if not any([pctTrigger, atrTrigger, rangeTrigger]):
                 self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
@@ -91,12 +87,12 @@ class LibertyFlow:
             if pctTrigger or atrTrigger or rangeTrigger:
                 asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
 
-                # trigger_time = await self.db.fetch_trigger_time()
-                # if trigger_time is not None and len(trigger_time) != 0:
-                #     trigger_time = trigger_time[0]['trigger_time']
-                #     self.logger.info(f"Using trigger time: {trigger_time}")
+                trigger_time = await self.db.fetch_trigger_time() 
+                if trigger_time is not None and len(trigger_time) != 0:
+                    trigger_time = trigger_time[0]['trigger_time']
+                    self.logger.info(f"Using trigger time: {trigger_time}")
 
-                trigger_time = '19:24:00'
+                #trigger_time = '19:24:00' ### Remove this later
                 swh_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))    
                 swl_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))                
                 #swingHigh = await self.swing.SWH()                

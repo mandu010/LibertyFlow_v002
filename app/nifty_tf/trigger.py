@@ -29,12 +29,12 @@ class LibertyTrigger():
             WHERE date = CURRENT_DATE '''
             
             change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
-            if change > 0 and change >=0.4:
+            if change >= 0.4:
                 self.logger.info(f"pct_trigger(): Triggered")
                 await self.db.execute_query(sqlTrue) 
                 await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
                 return True
-            elif change < 0 and change <= -0.4:
+            elif change <= -0.4:
                     self.logger.info(f"pct_trigger(): Triggered")
                     await self.db.execute_query(sqlTrue)                        
                     return True
@@ -93,6 +93,7 @@ class LibertyTrigger():
         try: 
             df = await self.LibertyMarketData.fetch_5min_data()
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')                        
+            self.logger.info(f"range_break(): Checking")
 
             if df.iloc[-2]['high'] > range['high'] or df.iloc[-2]['low'] < range['low']:
                 self.logger.info(f"range_break(): Triggered")
@@ -151,7 +152,6 @@ class LibertyTrigger():
             # Wait for next 5-minute interval
             next_check = await self.get_next_5min_interval()
             await self.wait_until_time(next_check)
-            #await self.wait_until_time(await self.get_next_5min_interval())
             
             # Check if trigger condition is met
             is_triggered = await self.range_break(range_val)

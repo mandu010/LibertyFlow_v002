@@ -24,8 +24,8 @@ class LibertySwing():
             # Continue checking every 5 minutes until 12:25 PM
             while True:
                 #Hard stop at 12:25 PM
-                #if len(candleList) == 0 and datetime.now().time() >= time(12, 25):
-                if len(candleList) == 0 and datetime.now().time() >= time(21, 25): ### Remove this later
+                if len(candleList) == 0 and datetime.now().time() >= time(12, 25):
+                #if len(candleList) == 0 and datetime.now().time() >= time(21, 25): ### Remove this later
                     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWH(): Breaced 12.25 PM.")
                     return False
@@ -42,8 +42,8 @@ class LibertySwing():
                 candleList.append(filtered_df_data.iloc[-2]['high'])
                 #if referenceCandle.iloc[0]['high'] >= combined_df['high'].max():
                 if referenceCandle.iloc[0]['high'] >= max(candleList):
-                    #if len(candleList) >= 6: 
-                    if len(candleList) >= 3: ### Remove this later
+                    if len(candleList) >= 6: 
+                    #if len(candleList) >= 3: ### Remove this later
                         self.logger.info("SWH(): Swing High Found")       
                         swhPrice = math.ceil(referenceCandle.iloc[0]['high'])              
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
@@ -79,8 +79,8 @@ class LibertySwing():
             # Continue checking every 5 minutes until 12:25 PM
             while True:
                 #Hard stop at 12:25 PM
-                #if len(candleList) == 0 and datetime.now().time() >= time(12, 25):
-                if len(candleList) == 0 and datetime.now().time() >= time(21, 25): ### Remove this later
+                if len(candleList) == 0 and datetime.now().time() >= time(12, 25):
+                #if len(candleList) == 0 and datetime.now().time() >= time(21, 25): ### Remove this later
                     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWL(): Breaced 12.25 PM.")
                     return False
@@ -97,9 +97,9 @@ class LibertySwing():
                 candleList.append(filtered_df_data.iloc[-2]['low'])
                 #if referenceCandle.iloc[0]['high'] >= combined_df['high'].max():
                 if referenceCandle.iloc[0]['low'] <= min(candleList):
-                    #if len(candleList) >= 6: 
-                    if len(candleList) >= 3: ### Remove this later
-                        self.logger.info("SWL(): Swing High Found")       
+                    if len(candleList) >= 6: 
+                    #if len(candleList) >= 3: ### Remove this later
+                        self.logger.info("SWL(): Swing Low Found")       
                         swlPrice = math.ceil(referenceCandle.iloc[0]['high'])              
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         ### Check needs to be done here

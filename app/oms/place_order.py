@@ -6,9 +6,13 @@ from app.utils.logging import get_logger
 
 class LibertyOrder:
     def __init__(self, db, fyers):
-        self.logger= get_logger("LibertyFlow")
+        self.logger= get_logger("OMS")
         self.db= db
         self.fyers= fyers
         self.range = LibertyRange(db, fyers)
         self.trigger = LibertyTrigger(db, fyers)
         self.logger.info("LibertyFlow initialized")
+
+    async def nifty_tf_long(self):
+        self.logger.info("nifty_tf_long(): Starting")
+        
