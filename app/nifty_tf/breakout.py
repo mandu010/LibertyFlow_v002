@@ -122,7 +122,7 @@ class LibertyBreakout:
                 
                 # Check for breakout
                 if not self.state["triggered"]:
-                    if side == "Buy" and ltp > price + 1:  # 1 point above SWH
+                    if side == "Buy" and ltp > price:
                         self.logger.info(f"Breakout! LTP {ltp} > {price}")
                         self.state["triggered"] = True
                         self.state["breakout_direction"] = "Buy"
@@ -131,7 +131,7 @@ class LibertyBreakout:
                         fyers.close_connection()
                         loop = asyncio.get_event_loop()
                         loop.call_soon_threadsafe(done_event.set)
-                    elif side == "Sell" and ltp < price - 1:  # 1 point below SWL
+                    elif side == "Sell" and ltp < price:
                         self.logger.info(f"Breakdown! LTP {ltp} < {price}")
                         self.state["triggered"] = True
                         self.state["breakout_direction"] = "Sell"
