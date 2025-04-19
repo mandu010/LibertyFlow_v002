@@ -6,7 +6,8 @@ import signal
 from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
-from app.nifty_tf.strategy_main import LibertyFlow
+#from app.nifty_tf.strategy_main import LibertyFlow
+from app.nifty_tf.strategy_main_test import LibertyFlow
 
 logger = get_logger("MAIN")
 
@@ -43,13 +44,13 @@ async def main():
         
         # This is a simple way to keep the application running
         # Replace this with your actual application logic later
-        await strategy.run()
+        await strategy.run()   
             
     except Exception as e:
         logger.error(f"Error in main function: {str(e)}", exc_info=True)
         return 1
 
-    
+    print("About to exit")
     return 0 
 
 if __name__ == "__main__":

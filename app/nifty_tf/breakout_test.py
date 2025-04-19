@@ -22,6 +22,7 @@ class LibertyBreakout:
         self.swl_price = None
         self.websocket = None
         self.ws_thread = None
+        self.event_queue = queue.Queue()  # Thread-safe queue for communication
         self.state = {
             "triggered": False,
             "breakout_direction": None,
@@ -32,7 +33,33 @@ class LibertyBreakout:
         # Get the futures symbol - would need to be determined dynamically in real implementation
         self.futures_symbol = "NSE:NIFTY25APRFUT"  # Example - should be current month
         #self.futures_symbol = "MCX:NATURALGAS25APRFUT"  ### Remove this later
-        self.event_queue = queue.Queue()        
+    
+    async def process_event_queue(self):
+        """Process events from the websocket thread"""
+        self.logger.info("Starting event queue processor in asyncio context")
+        thread_id = threading.current_thread().name
+        self.logger.info(f"[Thread: {thread_id}] Event queue processor running")
+        
+        while not self.stop_monitoring:
+            try:
+                # Non-blocking check for new events
+                if not self.event_queue.empty():
+                    event = self.event_queue.get_nowait()
+                    self.logger.info(f"Processing event from queue: {event}")
+                    
+                    if event["type"] == "breakout":
+                        self.state["triggered"] = True
+                        self.state["breakout_direction"] = event["direction"]
+                        self.state["breakout_price"] = event["price"]
+                        self.logger.info(f"Breakout processed: {self.state}")
+                        
+                        if "done_event" in event and event["done_event"] is not None:
+                            self.logger.info("Setting done_event from queue processor")
+                            event["done_event"].set()
+                            
+                await asyncio.sleep(0.1)  # Short sleep to avoid tight loop
+            except Exception as e:
+                self.logger.error(f"Error processing event queue: {e}", exc_info=True)
     
     async def monitor_breakouts(self, swh_price=None, swl_price=None):
         """
@@ -45,25 +72,30 @@ class LibertyBreakout:
         - swl_price: Optional swing low price to monitor
         """
         try:
+            thread_id = threading.current_thread().name
+            self.logger.info(f"[Thread: {thread_id}] Starting breakout monitoring")
+            
             # Update prices if provided
             if swh_price is not None:
                 self.swh_price = swh_price
-                self.logger.info(f"monitor_breakouts(): Updated swing high price: {self.swh_price}")
+                self.logger.info(f"Updated swing high price: {self.swh_price}")
             
             if swl_price is not None:
                 self.swl_price = swl_price
-                self.logger.info(f"monitor_breakouts(): Updated swing low price: {self.swl_price}")
+                self.logger.info(f"Updated swing low price: {self.swl_price}")
             
             # Start monitoring
             self.is_running = True
             self.stop_monitoring = False
             
-            self.logger.info(f"monitor_breakouts(): Starting breakout monitoring with SWH: {self.swh_price}, SWL: {self.swl_price}")
+            self.logger.info(f"Starting breakout monitoring with SWH: {self.swh_price}, SWL: {self.swl_price}")
             
             # Create an event to wait for websocket completion
             done_event = asyncio.Event()
-            self.logger.info("monitor_breakouts(): Done Event Set")
-
+            
+            # Start the queue processing task
+            queue_task = asyncio.create_task(self.process_event_queue())
+            
             # Start websocket in a separate thread for both SWH and SWL if they exist
             if self.swh_price is not None:
                 asyncio.create_task(self.start_breakout_websocket(
@@ -80,11 +112,14 @@ class LibertyBreakout:
                     access_token=self.access_token,
                     done_event=done_event
                 ))
-
-            queue_task = asyncio.create_task(self.process_event_queue())
+            
             # Wait for the done event to be set when a breakout occurs
+            self.logger.info("Waiting for breakout event...")
             await done_event.wait()
-            queue_task.cancel()            
+            self.logger.info("Breakout event received, continuing execution")
+            
+            # Cancel the queue processing task
+            queue_task.cancel()
             
             # Process the breakout if it occurred
             if self.state["triggered"]:
@@ -95,11 +130,11 @@ class LibertyBreakout:
                     print("SELL NOW!!")
                     #await self.process_sell_breakout(self.state["breakout_price"])
             
-            self.logger.info("monitor_breakouts(): Breakout monitoring completed")
+            self.logger.info("Breakout monitoring completed")
             self.is_running = False
             
         except Exception as e:
-            self.logger.error(f"monitor_breakouts(): Error in breakout monitoring: {e}", exc_info=True)
+            self.logger.error(f"Error in breakout monitoring: {e}", exc_info=True)
             self.is_running = False
     
     async def start_breakout_websocket(self, price, side, access_token, done_event):
@@ -113,74 +148,67 @@ class LibertyBreakout:
         - done_event: asyncio.Event to signal when a breakout occurs
         """
         try:
-            self.logger.info(f"start_breakout_websocket(): Starting {side} breakout monitor at price {price}")
-
-            # Get the current thread object
-            current_thread = threading.current_thread()
-
-            # Get the name of the current thread
-            thread_name = current_thread.name
-
-            # Get the identifier (ID) of the current thread
-            thread_id = current_thread.ident
-
-            # Check if the current thread is alive
-            is_alive = current_thread.is_alive()
-
-            # Check if the current thread is a daemon thread
-            is_daemon = current_thread.daemon
-
-            # Get the total number of active threads
-            thread_count = threading.active_count()
-
-            # Print thread information
-            print(f"Current Thread Name: {thread_name}")
-            print(f"Current Thread ID: {thread_id}")
-            print(f"Is Thread Alive: {is_alive}")
-            print(f"Is Daemon Thread: {is_daemon}")
-            print(f"Total Active Threads: {thread_count}")            
+            thread_id = threading.current_thread().name
+            self.logger.info(f"[Thread: {thread_id}] Starting {side} breakout monitor at price {price}")
+            
+            # Create a reference to self that can be used in callbacks
+            breakout_instance = self
             
             # Define the callbacks for the websocket
             def onmessage(message):
+                ws_thread_id = threading.current_thread().name
+                
                 if not isinstance(message, dict):
                     return
                 if message.get("type") != "sf":
                     return  # skip if not symbol feed
                 
                 ltp = message.get("ltp")
-                self.logger.info(f"[{side}] LTP: {ltp} | Target: {price}")
+                breakout_instance.logger.info(f"[Thread: {ws_thread_id}] [{side}] LTP: {ltp} | Target: {price}")
                 
                 # Check for breakout
-                if not self.state["triggered"]:
-                    if side == "Buy" and ltp > price:
-                        self.logger.info(f"start_breakout_websocket(): Breakout! LTP {ltp} > {price}")
-                        self.state["triggered"] = True
-                        self.state["breakout_direction"] = "Buy"
-                        self.state["breakout_price"] = ltp
-                        fyers.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
-                        #fyers.close_connection()
-                        #loop = asyncio.get_event_loop()
-                        #loop.call_soon_threadsafe(done_event.set)
-                        self.main_loop.call_soon_threadsafe(done_event.set)
-                    elif side == "Sell" and ltp < price:
-                        self.logger.info(f"start_breakout_websocket(): Breakdown! LTP {ltp} < {price}")
-                        self.state["triggered"] = True
-                        self.state["breakout_direction"] = "Sell"
-                        self.state["breakout_price"] = ltp
-                        fyers.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
-                        fyers.close_connection()
-                        loop = asyncio.get_event_loop()
-                        loop.call_soon_threadsafe(done_event.set)
+                if not breakout_instance.state["triggered"]:
+                    breakout_detected = False
+                    
+                    if side == "Buy" and ltp > price + 1:  # 1 point above SWH
+                        breakout_instance.logger.info(f"[Thread: {ws_thread_id}] Breakout! LTP {ltp} > {price}")
+                        breakout_detected = True
+                        breakout_direction = "Buy"
+                    elif side == "Sell" and ltp < price - 1:  # 1 point below SWL
+                        breakout_instance.logger.info(f"[Thread: {ws_thread_id}] Breakdown! LTP {ltp} < {price}")
+                        breakout_detected = True
+                        breakout_direction = "Sell"
+                    
+                    if breakout_detected:
+                        try:
+                            # Unsubscribe from the symbol feed
+                            fyers.unsubscribe(symbols=[breakout_instance.futures_symbol], data_type="SymbolUpdate")
+                            breakout_instance.logger.info(f"[Thread: {ws_thread_id}] Unsubscribed from symbol feed")
+                        except Exception as e:
+                            breakout_instance.logger.error(f"[Thread: {ws_thread_id}] Error unsubscribing: {e}")
+                        
+                        # Put the event in the queue instead of directly setting the event
+                        breakout_instance.event_queue.put({
+                            "type": "breakout",
+                            "direction": breakout_direction,
+                            "price": ltp,
+                            "done_event": done_event
+                        })
+                        
+                        breakout_instance.logger.info(f"[Thread: {ws_thread_id}] Breakout event added to queue")
             
             def onerror(message):
-                self.logger.error(f"start_breakout_websocket(): Websocket error: {message}")
+                ws_thread_id = threading.current_thread().name
+                breakout_instance.logger.error(f"[Thread: {ws_thread_id}] Websocket error: {message}")
             
             def onclose(message):
-                self.logger.info(f"start_breakout_websocket(): Websocket connection closed: {message}")
+                ws_thread_id = threading.current_thread().name
+                breakout_instance.logger.info(f"[Thread: {ws_thread_id}] Websocket connection closed: {message}")
             
             def onopen():
-                self.logger.info(f"start_breakout_websocket(): Connected to websocket. Subscribing to: {self.futures_symbol}")
-                fyers.subscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
+                ws_thread_id = threading.current_thread().name
+                breakout_instance.logger.info(f"[Thread: {ws_thread_id}] Connected to websocket. Subscribing to: {breakout_instance.futures_symbol}")
+                fyers.subscribe(symbols=[breakout_instance.futures_symbol], data_type="SymbolUpdate")
                 fyers.keep_running()
             
             # Create socket instance
@@ -201,13 +229,18 @@ class LibertyBreakout:
             self.ws_thread.daemon = True  # Make thread daemon so it exits when main thread exits
             self.ws_thread.start()
             
-            self.logger.info(f"start_breakout_websocket(): Started {side} websocket monitor in background thread")
+            self.logger.info(f"[Thread: {thread_id}] Started {side} websocket monitor in background thread")
             
         except Exception as e:
-            self.logger.error(f"start_breakout_websocket(): Error starting breakout websocket: {e}", exc_info=True)
+            self.logger.error(f"Error starting breakout websocket: {e}", exc_info=True)
             # Signal the event in case of error to prevent hanging
-            loop = asyncio.get_event_loop()
-            loop.call_soon_threadsafe(done_event.set)
+            if done_event:
+                # Add to queue instead of directly setting
+                self.event_queue.put({
+                    "type": "error",
+                    "error": str(e),
+                    "done_event": done_event
+                })
     
     async def process_buy_breakout(self, ltp):
         """Process a buy breakout."""
@@ -294,20 +327,3 @@ class LibertyBreakout:
             # This is simplified - in a real implementation you would need 
             # a proper way to signal the websocket to close
             pass  # The thread is daemon so it will exit when main thread exits
-
-async def process_event_queue(self):
-    while not self.stop_monitoring:
-        try:
-            # Non-blocking check for new events
-            if not self.event_queue.empty():
-                event = self.event_queue.get_nowait()
-                if event["type"] == "breakout":
-                    self.state["triggered"] = True
-                    self.state["breakout_direction"] = event["direction"]
-                    self.state["breakout_price"] = event["price"]
-                    self.logger.info(f"Processing breakout event: {event}")
-                    if "done_event" in event:
-                        event["done_event"].set()
-            await asyncio.sleep(0.1)  # Short sleep to avoid tight loop
-        except Exception as e:
-            self.logger.error(f"Error processing event queue: {e}")
