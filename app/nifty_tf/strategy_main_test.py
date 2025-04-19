@@ -4,7 +4,7 @@ from datetime import datetime,time
 from app.nifty_tf.range import LibertyRange
 from app.nifty_tf.trigger import LibertyTrigger
 from app.nifty_tf.swingFormation import LibertySwing
-from app.nifty_tf.breakout_test import LibertyBreakout
+from app.nifty_tf.breakout_test2 import LibertyBreakout
 from app.utils.logging import get_logger
 
 
@@ -26,7 +26,7 @@ class LibertyFlow:
             "trading_complete": asyncio.Event()
         }        
         # Store swing values
-        self.swh_value = 23850
+        self.swh_value = 23860
         self.swl_value = 23852        
     
     async def run(self) -> None:
@@ -45,12 +45,26 @@ class LibertyFlow:
                 WHERE NOT EXISTS (
                     SELECT 1 FROM nifty.status WHERE date = CURRENT_DATE
                 );'''
+            
+            done_event = asyncio.Event()
             await self.db.execute_query(sqlStatus)
+            await asyncio.gather(
+                    self.breakout.monitor_breakouts(swh_price=self.swh_value),
+                    self.breakout.monitor_breakouts(swl_price=self.swl_value)
+                )
+            print("Awaiting done_event")
+            state = await self.breakout.wait_for_breakout()
+            direction, price = state["direction"], state["price"]
 
-            await self.breakout.monitor_breakouts(swh_price=self.swh_value)
-            #await self.breakout.monitor_breakouts(swh_price=self.swl_value)
-            await self.db.close()   
-            return True       
+            # 3) execute the appropriate order
+            if direction == "Buy":
+                print("Buy")
+            else:
+                print("Sell")
+                #await self.breakout.monitor_breakouts(swh_price=self.swh_value)
+                #await self.breakout.monitor_breakouts(swh_price=self.swl_value)
+                await self.db.close()   
+                return True       
 
         except Exception as e:
             self.logger.error(f"Error in LibertyFlow run: {e}", exc_info=True)

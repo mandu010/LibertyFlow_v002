@@ -61,7 +61,7 @@ class LibertyBreakout:
             except Exception as e:
                 self.logger.error(f"Error processing event queue: {e}", exc_info=True)
     
-    async def monitor_breakouts(self, swh_price=None, swl_price=None):
+    async def monitor_breakouts(self, swh_price=None, swl_price=None, done_event=None):
         """
         Monitor price action for breakouts of swing high or low levels.
         This function can be called with initial swing values and then
@@ -84,6 +84,9 @@ class LibertyBreakout:
                 self.swl_price = swl_price
                 self.logger.info(f"Updated swing low price: {self.swl_price}")
             
+            if done_event is None:
+                done_event = asyncio.Event()
+                
             # Start monitoring
             self.is_running = True
             self.stop_monitoring = False
