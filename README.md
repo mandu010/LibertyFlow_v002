@@ -1,2 +1,84 @@
 # LibertyFlow_v002
 Simple Fyers implementation of System. Later will probably try to implement in FastAPI if required.
+
+├── LibertyFlow_v002
+│   ├── .DS_Store
+│   ├── .env
+│   ├── .gitignore
+│   ├── README.md
+│   ├── app
+│   │   ├── .DS_Store
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-312.pyc
+│   │   │   ├── config.cpython-312.pyc
+│   │   │   └── main.cpython-312.pyc
+│   │   ├── config.py
+│   │   ├── db
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── __init__.cpython-312.pyc
+│   │   │   │   └── dbclass.cpython-312.pyc
+│   │   │   └── dbclass.py
+│   │   ├── functions
+│   │   │   ├── __init__.py
+│   │   │   └── internal.py
+│   │   ├── fyers
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── __init__.cpython-312.pyc
+│   │   │   │   └── client.cpython-312.pyc
+│   │   │   ├── client.py
+│   │   │   ├── handlers.py
+│   │   │   └── oms
+│   │   │       ├── __init__.py
+│   │   │       └── place_order.py
+│   │   ├── main.py
+│   │   ├── main_debug.ipynb
+│   │   ├── nifty_tf
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── __init__.cpython-312.pyc
+│   │   │   │   ├── breakout_test.cpython-312.pyc
+│   │   │   │   ├── breakout_test2.cpython-312.pyc
+│   │   │   │   ├── market_data.cpython-312.pyc
+│   │   │   │   ├── range.cpython-312.pyc
+│   │   │   │   ├── strategy_main.cpython-312.pyc
+│   │   │   │   ├── strategy_main_test.cpython-312.pyc
+│   │   │   │   ├── swingFormation.cpython-312.pyc
+│   │   │   │   └── trigger.cpython-312.pyc
+│   │   │   ├── breakout.py
+│   │   │   ├── breakout_test.py
+│   │   │   ├── breakout_test2.py
+│   │   │   ├── market_data.py
+│   │   │   ├── place_order.py
+│   │   │   ├── range.py
+│   │   │   ├── strategy_main.py
+│   │   │   ├── strategy_main_original.py
+│   │   │   ├── strategy_main_test.py
+│   │   │   ├── swingFormation.py
+│   │   │   ├── trail.py
+│   │   │   ├── trigger.py
+│   │   │   ├── trigger_bkp.py
+│   │   │   └── trigger_bkp2.py
+│   │   ├── sql
+│   │   │   ├── insert.sql
+│   │   │   └── insert_date_trigger_status.sql
+│   │   └── utils
+│   │       ├── __init__.py
+│   │       ├── __pycache__
+│   │       │   ├── __init__.cpython-312.pyc
+│   │       │   └── logging.cpython-312.pyc
+│   │       └── logging.py
+│   ├── fyersApi.log
+│   ├── fyersDataSocket.log
+│   ├── fyersDebug.ipynb
+│   ├── fyersLogin.ipynb
+│   ├── fyersRequests.log
+│   ├── ignoreproxy.ipynb
+│   ├── main.ipynb
+│   └── requirements.txt
+├── debug
+└── dubug_jupyter
+    ├── fyersApi.log
+    └── fyersRequests.log
