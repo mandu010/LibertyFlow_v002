@@ -83,4 +83,26 @@ class LibertyMarketData:
             return  df_prevDay  
         except Exception as e:
             self.logger.error(f"fetch_prevDay_5min_data(): Error fetching data from Fyers: {e}", exc_info=True)
-            return None            
+            return None  
+
+    async def fetch_quick_LTP(self):
+        try:
+            data={
+                  "symbol":self.symbol,
+                  "resolution":"1",
+                  "date_format":"1",
+                  "range_from":datetime.now().strftime('%Y-%m-%d'),
+                  "range_to":datetime.now().strftime('%Y-%m-%d'),
+                  "cont_flag":1
+                  }
+            min1_data_today = self.fyers.history(data)
+            if min1_data_today['code'] == 200  and "candles" in min1_data_today:
+                self.logger.info(f"fetch_quick_LTP(): Fetching quick LTP.")
+                min1_data_df = pd.DataFrame(
+                    min1_data_today["candles"], 
+                    columns=["timestamp", "open", "high", "low", "close", "volume"]
+                    ) 
+                return min1_data_df.iloc[-1]['close']
+        except Exception as e:
+            self.logger.error(f"fetch_quick_LTP(): Error fetching last LTP: {e}", exc_info=True)
+            return None                   

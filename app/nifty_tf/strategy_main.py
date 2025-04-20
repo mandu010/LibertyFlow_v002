@@ -6,7 +6,7 @@ from app.nifty_tf.trigger import LibertyTrigger
 from app.nifty_tf.swingFormation import LibertySwing
 from app.nifty_tf.breakout import LibertyBreakout
 from app.utils.logging import get_logger
-
+from app.fyers.oms import Nifty_OMS
 
 class LibertyFlow:
     def __init__(self, db, fyers):
@@ -92,7 +92,6 @@ class LibertyFlow:
                     trigger_time = trigger_time[0]['trigger_time']
                     self.logger.info(f"Using trigger time: {trigger_time}")
 
-                #trigger_time = '19:24:00' ### Remove this later
                 swh_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))    
                 swl_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))                
                 #swingHigh = await self.swing.SWH()                
@@ -102,8 +101,17 @@ class LibertyFlow:
                     self.run_swh_formation(swh_swing),
                     self.run_swl_formation(swl_swing),
                 )
-                #print(swingHigh)
-                await self.db.close()            
+            print("Awaiting done_event")
+            state = await self.breakout.wait_for_breakout()
+            direction, price = state["direction"], state["price"]
+
+            # 3) execute the appropriate order
+            if direction == "Buy":
+                print("Buy")
+            else:
+                print("Sell")
+                await self.db.close()   
+                return True                   
 
         except Exception as e:
             self.logger.error(f"Error in LibertyFlow run: {e}", exc_info=True)
