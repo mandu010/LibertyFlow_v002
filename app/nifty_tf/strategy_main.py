@@ -108,7 +108,7 @@ class LibertyFlow:
 
             # 3) execute the appropriate order
             if direction == "Buy":
-                print("Buying")
+                print("Buy")
                 await self.place_order.place_nifty_order(side="Buy", qty=75)
             else:
                 print("Sell")

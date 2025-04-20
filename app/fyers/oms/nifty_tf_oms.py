@@ -28,22 +28,23 @@ class Nifty_OMS:
                 'side': 1,
                 'symbol': symbol,
                 'qty': qty,
-                'type': 2
+                'type': 2,
+                'validity':'DAY'
             }
-            self.fyers.place_order(data)
+            response = self.fyers.place_order(data)
+            self.logger.info(f"Order Placed. Response:{response}\n")
         except Exception as e:
             print(f"Error: {e}")
     
     async def get_symbol(self,side,strike_interval=50):
         try:
-            #ltp = self.LibertyMarketData.fetch_quick_LTP
-            ltp=23850
-            print(f"ltp{ltp}")
+            ltp = self.LibertyMarketData.fetch_quick_LTP
+            #ltp=23850
+            print(f"ltp:{ltp}")
             if ltp is not None:
                 ATM =  round(ltp/strike_interval)*strike_interval
             else:
                 raise Exception
-            ltp=23850
             url = 'https://public.fyers.in/sym_details/NSE_FO.csv'
             df = pd.read_csv(url, header=None)
             if side == "Buy":
@@ -51,7 +52,6 @@ class Nifty_OMS:
             else:
                 optionType="PE"
             df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
-            s = df_filtered.iloc[0][1]
             expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
             if expiry_date != datetime.today().date():
                 return str(df_filtered.iloc[0][9])

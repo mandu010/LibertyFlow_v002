@@ -6,8 +6,8 @@ import signal
 from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
-#from app.nifty_tf.strategy_main import LibertyFlow
-from app.nifty_tf.strategy_main_test import LibertyFlow
+from app.nifty_tf.strategy_main import LibertyFlow
+#from app.nifty_tf.strategy_main_test import LibertyFlow
 
 logger = get_logger("MAIN")
 
