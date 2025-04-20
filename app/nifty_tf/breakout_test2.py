@@ -1,5 +1,3 @@
-# app/nifty_tf/breakout.py
-
 import asyncio
 import threading
 

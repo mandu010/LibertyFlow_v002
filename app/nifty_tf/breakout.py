@@ -1,29 +1,36 @@
 import asyncio
 import threading
+from datetime import datetime
 
 from app.utils.logging import get_logger
 from app.config import settings
 from fyers_apiv3.FyersWebsocket import data_ws
+
 
 class LibertyBreakout:
     def __init__(self, db, fyers):
         self.logger = get_logger("LibertyBreakout")
         self.db = db
         self.fyers = fyers
+
+        # thresholds (set via monitor_breakouts)
         self.swh_price = None
         self.swl_price = None
+
+        # breakout state (updated on first breach)
         self.state = {
             "triggered": False,
             "direction": None,
             "price": None
         }
+
         # internal control
         self._monitor_started = False
         self._done_event: asyncio.Event = None
 
         # Fyers connection details
         self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
-        self.futures_symbol = "NSE:NIFTY25APRFUT"  
+        self.futures_symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT" # "NSE:NIFTY25APRFUT"  # TODO: derive dynamically
 
     async def monitor_breakouts(self, *, swh_price=None, swl_price=None):
         """
@@ -136,107 +143,3 @@ class LibertyBreakout:
     #   process_buy_breakout(), process_sell_breakout(),
     #   calculate_atm_strike(), find_delta_option(), update_db_with_order(), etc.
     # ——————————————————————————————————————————————————————————
-
-    
-    async def process_buy_breakout(self, ltp):
-        """Process a buy breakout."""
-        try:
-            self.logger.info(f"Processing buy breakout at price: {ltp}")
-            # Calculate ATM option
-            atm_strike = await self.calculate_atm_strike(ltp)
-            # Calculate option with delta ~0.5
-            option_symbol = await self.find_delta_option(atm_strike, "CE", target_delta=0.5)
-            # Place order
-            order_result = await self.order.place_buy_order(option_symbol, ltp + 5)  # LTP + 5 to ensure execution
-            # Update DB
-            await self.update_db_with_order(order_result, "BUY", ltp, option_symbol)
-            self.stop_monitoring = True
-        except Exception as e:
-            self.logger.error(f"Error processing buy breakout: {e}", exc_info=True)
-    
-    async def process_sell_breakout(self, ltp):
-        """Process a sell breakout."""
-        try:
-            self.logger.info(f"Processing sell breakout at price: {ltp}")
-            # Calculate ATM option
-            atm_strike = await self.calculate_atm_strike(ltp)
-            # Calculate option with delta ~0.5
-            option_symbol = await self.find_delta_option(atm_strike, "PE", target_delta=0.5)
-            # Place order
-            order_result = await self.order.place_sell_order(option_symbol, ltp - 5)  # LTP - 5 to ensure execution
-            # Update DB
-            await self.update_db_with_order(order_result, "SELL", ltp, option_symbol)
-            self.stop_monitoring = True
-        except Exception as e:
-            self.logger.error(f"Error processing sell breakout: {e}", exc_info=True)
-    
-    async def calculate_atm_strike(self, current_price):
-        """Calculate the at-the-money strike price."""
-        # Round to nearest 50 for Nifty
-        return round(current_price / 50) * 50
-    
-    async def find_delta_option(self, atm_strike, option_type, target_delta=0.5):
-        """
-        Find an option contract with delta close to the target.
-        For simplicity, this example just returns the ATM option.
-        In a real implementation, you would query option chain and find the contract with delta closest to 0.5.
-        """
-        # This is simplified - in reality you'd need to query option chain data 
-        # and calculate or retrieve delta values
-        expiry = await self.get_current_expiry()
-        option_symbol = f"NSE:NIFTY{expiry}{atm_strike}{option_type}"
-        self.logger.info(f"Selected option with target delta ~{target_delta}: {option_symbol}")
-        return option_symbol
-    
-    async def get_current_expiry(self):
-        """Get the current expiry date in the format required for option symbols."""
-        # Simplified - you'd need to implement logic to determine the current expiry date
-        # This would typically be the nearest Thursday
-        return "25APR"  # Example format
-    
-    async def update_db_with_order(self, order_result, direction, trigger_price, option_symbol):
-        """Update database with order details."""
-        try:
-            sql = f"""
-            UPDATE nifty.trigger_status 
-            SET 
-                breakout_time = NOW(),
-                breakout_price = {trigger_price},
-                order_direction = '{direction}',
-                option_symbol = '{option_symbol}',
-                order_id = '{order_result.get("order_id", "unknown")}',
-                status = 'Exited'
-            WHERE date = CURRENT_DATE
-            """
-            await self.db.execute_query(sql)
-            self.logger.info(f"Updated DB with {direction} order details")
-        except Exception as e:
-            self.logger.error(f"Error updating DB with order: {e}", exc_info=True)
-    
-    async def stop(self):
-        """Stop the breakout monitoring."""
-        self.stop_monitoring = True
-        self.logger.info("Stopping breakout monitoring")
-        
-        # Close any active websocket connections
-        if self.ws_thread and self.ws_thread.is_alive():
-            # This is simplified - in a real implementation you would need 
-            # a proper way to signal the websocket to close
-            pass  # The thread is daemon so it will exit when main thread exits
-
-    async def process_event_queue(self):
-        while not self.stop_monitoring:
-            try:
-                # Non-blocking check for new events
-                if not self.event_queue.empty():
-                    event = self.event_queue.get_nowait()
-                    if event["type"] == "breakout":
-                        self.state["triggered"] = True
-                        self.state["breakout_direction"] = event["direction"]
-                        self.state["breakout_price"] = event["price"]
-                        self.logger.info(f"Processing breakout event: {event}")
-                        if "done_event" in event:
-                            event["done_event"].set()
-                await asyncio.sleep(0.1)  # Short sleep to avoid tight loop
-            except Exception as e:
-                self.logger.error(f"Error processing event queue: {e}")

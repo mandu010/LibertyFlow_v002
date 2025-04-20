@@ -27,7 +27,7 @@ class LibertyFlow:
         }        
         # Store swing values
         self.swh_value = 23860
-        self.swl_value = 23852        
+        self.swl_value = 23850       
     
     async def run(self) -> None:
         try:
@@ -46,7 +46,6 @@ class LibertyFlow:
                     SELECT 1 FROM nifty.status WHERE date = CURRENT_DATE
                 );'''
             
-            done_event = asyncio.Event()
             await self.db.execute_query(sqlStatus)
             await asyncio.gather(
                     self.breakout.monitor_breakouts(swh_price=self.swh_value),

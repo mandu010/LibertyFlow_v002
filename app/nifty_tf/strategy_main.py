@@ -98,11 +98,9 @@ class LibertyFlow:
                 #swingHigh = await self.swing.SWH()                
 
                 self.logger.info("Starting parallel swing formation and monitoring tasks")
-                done_event = asyncio.Event()
                 await asyncio.gather(
                     self.run_swh_formation(swh_swing),
                     self.run_swl_formation(swl_swing),
-                    self.monitor_trading_session()
                 )
                 #print(swingHigh)
                 await self.db.close()            
