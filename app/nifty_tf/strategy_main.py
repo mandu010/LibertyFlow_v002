@@ -6,7 +6,7 @@ from app.nifty_tf.trigger import LibertyTrigger
 from app.nifty_tf.swingFormation import LibertySwing
 from app.nifty_tf.breakout import LibertyBreakout
 from app.utils.logging import get_logger
-from app.fyers.oms import Nifty_OMS
+from app.fyers.oms.nifty_tf_oms import Nifty_OMS
 
 class LibertyFlow:
     def __init__(self, db, fyers):
@@ -16,6 +16,7 @@ class LibertyFlow:
         self.range = LibertyRange(db, fyers)
         self.trigger = LibertyTrigger(db, fyers)
         self.breakout = LibertyBreakout(db, fyers)
+        self.place_order = Nifty_OMS(db, fyers)
         self.logger.info("LibertyFlow initialized")
 
         # Create event tracking dictionary
@@ -107,9 +108,11 @@ class LibertyFlow:
 
             # 3) execute the appropriate order
             if direction == "Buy":
-                print("Buy")
+                print("Buying")
+                await self.place_order.place_nifty_order(side="Buy", qty=75)
             else:
                 print("Sell")
+                await self.place_order.place_nifty_order(side="Sell", qty=75)
                 await self.db.close()   
                 return True                   
 

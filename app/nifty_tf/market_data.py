@@ -102,6 +102,7 @@ class LibertyMarketData:
                     min1_data_today["candles"], 
                     columns=["timestamp", "open", "high", "low", "close", "volume"]
                     ) 
+                print(min1_data_df.iloc[-1]['close'])
                 return min1_data_df.iloc[-1]['close']
         except Exception as e:
             self.logger.error(f"fetch_quick_LTP(): Error fetching last LTP: {e}", exc_info=True)
