@@ -50,6 +50,7 @@ class LibertyDB:
                 return result
         except Exception as e:
             self.logger.error(f"Error executing fetch_query: {e}")
+            return None
 
     ### Check Trigger status and insert if not present
     async def check_trigger_status(self, sql=None):

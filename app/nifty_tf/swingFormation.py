@@ -31,8 +31,8 @@ class LibertySwing():
                     return False
 
                 # Check if trigger condition is met
-                #df_data = await self.LibertyMarketData.fetch_5min_data()
-                df_data = await self.LibertyMarketData.fetch_1min_data() ### Remove this later
+                df_data = await self.LibertyMarketData.fetch_5min_data()
+                #df_data = await self.LibertyMarketData.fetch_1min_data() ### Remove this later
                 df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
 
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(self.trigger_time).time()]
@@ -58,13 +58,11 @@ class LibertySwing():
                     referenceCandle = filtered_df_data.iloc[-2]
                     self.trigger_time = str(filtered_df_data.iloc[-2]['timestamp'].time())
                     candleList = []   
-                    print("In side else")             
-                    print(f"CandleList: \n{candleList}\n Reference Candle:\n{referenceCandle}\n Filtered Data:\n {filtered_df_data}")    
 
                 print(f"CandleList: \n{candleList}\n Reference Candle:\n{referenceCandle}\n Filtered Data:\n {filtered_df_data}")
                 # Wait for next 5-minute interval
-                #next_check = await self.trigger.get_next_5min_interval()
-                next_check = await self.trigger.get_next_1min_interval() ### Remove this later
+                next_check = await self.trigger.get_next_5min_interval()
+                #next_check = await self.trigger.get_next_1min_interval() ### Remove this later
                 await self.trigger.wait_until_time(next_check)
         except Exception as e:
             self.logger.error(f"SWH(): Error: {e}", exc_info=True)
@@ -86,8 +84,8 @@ class LibertySwing():
                     return False
 
                 # Check if trigger condition is met
-                #df_data = await self.LibertyMarketData.fetch_5min_data()
-                df_data = await self.LibertyMarketData.fetch_1min_data() ### Remove this later
+                df_data = await self.LibertyMarketData.fetch_5min_data()
+                #df_data = await self.LibertyMarketData.fetch_1min_data() ### Remove this later
                 df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
 
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(self.trigger_time).time()]
@@ -118,8 +116,8 @@ class LibertySwing():
 
                 print(f"CandleList: \n{candleList}\n Reference Candle:\n{referenceCandle}\n Filtered Data:\n {filtered_df_data}")
                 # Wait for next 5-minute interval
-                #next_check = await self.trigger.get_next_5min_interval()
-                next_check = await self.trigger.get_next_1min_interval() ### Remove this later
+                next_check = await self.trigger.get_next_5min_interval()
+                #next_check = await self.trigger.get_next_1min_interval() ### Remove this later
                 await self.trigger.wait_until_time(next_check)
             
         except Exception as e:

@@ -91,6 +91,7 @@ class LibertyFlow:
                 if trigger_time is not None and len(trigger_time) != 0:
                     trigger_time = trigger_time[0]['trigger_time']
                     self.logger.info(f"Using trigger time: {trigger_time}")
+                print(f"Trigger Time: {trigger_time}")
 
                 swh_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))    
                 swl_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))                
@@ -128,7 +129,7 @@ class LibertyFlow:
                 # Get the SWH value from DB
                 sql = 'SELECT "swhPrice" FROM nifty.trigger_status WHERE date = CURRENT_DATE'
                 result = await self.db.fetch_query(sql)
-                self.swh_value = result["swhPrice"] if result and "swhPrice" in result else None
+                self.swh_value = result[0]["swhPrice"] if result and "swhPrice" in result else None
                 
                 if self.swh_value:
                     self.logger.info(f"SWH formed with value: {self.swh_value}, notifying breakout system")
@@ -155,7 +156,11 @@ class LibertyFlow:
                 # Get the SWL value from DB
                 sql = 'SELECT "swlPrice" FROM nifty.trigger_status WHERE date = CURRENT_DATE'
                 result = await self.db.fetch_query(sql)
-                self.swl_value = result["swlPrice"] if result and "swlPrice" in result else None
+                if result is not None:
+                    self.logger.info(f"SWL(): {result}")
+                    self.swl_value = result[0]["swlPrice"]
+
+                #self.swl_value = result[0]["swlPrice"] if result and "swlPrice" in result else None
                 
                 if self.swl_value:
                     self.logger.info(f"SWL formed with value: {self.swl_value}, notifying breakout system")
