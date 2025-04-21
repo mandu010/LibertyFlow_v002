@@ -65,7 +65,6 @@ class LibertyFlow:
                 if datetime.now().time() < time(9, 15):
                     next_check = await self.trigger.get_next_5min_interval()
                     await self.trigger.wait_until_time(next_check)
-                    break
                 else:
                     break
                     #continue ### Remove this later
