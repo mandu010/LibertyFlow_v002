@@ -56,6 +56,7 @@ class LibertyTrigger():
                     break
                 else:
                     break
+            await asyncio.sleep(3) ### Even after 9.20 waiting a few seconds
             df_today = await self.LibertyMarketData.fetch_5min_data()
             df_today['timestamp'] = pd.to_datetime(df_today['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')         
 
@@ -91,6 +92,14 @@ class LibertyTrigger():
         
     async def range_break(self, range) -> bool:
         try: 
+            now = datetime.now().time()
+            
+            # Check if we're in the valid time window
+            if now < time(9, 25):
+                # Too early - wait until 9:25 to start
+                self.logger.info("range_break(): Waiting till 9.25, if triggered before it.")
+                await self.wait_until_start_time(time(9, 25))
+                await asyncio.sleep(3)           
             df = await self.LibertyMarketData.fetch_5min_data()
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')                        
             self.logger.info(f"range_break(): Checking")
@@ -121,16 +130,16 @@ class LibertyTrigger():
         now = datetime.now().time()
         
         # Check if we're in the valid time window
-        if now < time(9, 20):
-            # Too early - wait until 9:20 to start
-            print("Market not yet open. Waiting until 9:20 AM to start.")
-            await self.wait_until_start_time(time(9, 20))
+        if now < time(9, 25):
+            # Too early - wait until 9:25 to start
+            self.logger.info("Waiting till 9.25, if triggered before it.")
+            await self.wait_until_start_time(time(9, 25))
         elif now >= time(12, 25):
             # Too late - past cutoff time
             print("Already past cutoff time of 12:25 PM. Strategy will not start.")
             return False
         else:
-            # Between 9:20 and 12:25 - start immediately
+            # Between 9:25 and 12:25 - start immediately
             print(f"App restarted at {now}. Beginning immediately.")
             
             # Important: If the app restarted mid-interval, check immediately
