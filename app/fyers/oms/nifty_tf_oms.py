@@ -15,7 +15,7 @@ class Nifty_OMS:
     async def calculateATM(self, strike_interval=50):
         ltp = self.LibertyMarketData.fetch_quick_LTP
         if ltp is not None:
-            return float(round(ltp/strike_interval)*strike_interval)
+            return round(ltp/strike_interval)*strike_interval
         else:
             raise Exception
         
@@ -38,11 +38,18 @@ class Nifty_OMS:
     
     async def get_symbol(self,side,strike_interval=50):
         try:
-            ltp = float(self.LibertyMarketData.fetch_quick_LTP)
-            #ltp=23850
-            print(f"ltp:{ltp}")
+            ltp = await self.LibertyMarketData.fetch_quick_LTP()
+            print(f"ltp:{ltp}",type(ltp))
+            self.logger.info(f"get_symbol(): LTP: {ltp}")
             if ltp is not None:
                 ATM =  round(ltp/strike_interval)*strike_interval
+                ### Stepping 1 Down in ATM strike
+                if side == "Buy":
+                    ATM = ATM - 50
+                else:
+                    ATM = ATM + 50
+                print(ATM)
+
             else:
                 raise Exception
             url = 'https://public.fyers.in/sym_details/NSE_FO.csv'

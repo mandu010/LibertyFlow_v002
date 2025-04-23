@@ -22,7 +22,6 @@ class LibertyMarketData:
                   "range_to":datetime.now().strftime('%Y-%m-%d'),
                   "cont_flag":1
                   }
-            print(data)
             min5_data_today = self.fyers.history(data)
             if min5_data_today['code'] == 200  and "candles" in min5_data_today:
                 self.logger.info(f"fetch_5min_data(): Fetched today's 5min candle data.")
@@ -102,7 +101,6 @@ class LibertyMarketData:
                     min1_data_today["candles"], 
                     columns=["timestamp", "open", "high", "low", "close", "volume"]
                     ) 
-                print(min1_data_df.iloc[-1]['close'])
                 return float(min1_data_df.iloc[-1]['close'])
         except Exception as e:
             self.logger.error(f"fetch_quick_LTP(): Error fetching last LTP: {e}", exc_info=True)

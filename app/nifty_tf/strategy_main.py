@@ -103,20 +103,20 @@ class LibertyFlow:
                 await asyncio.gather(
                     self.run_swh_formation(swh_swing),
                     self.run_swl_formation(swl_swing),
+                    self.monitor_trading_session()
                 )
-            print("Awaiting done_event")
+            self.logger.info("Awaiting done_event")
             state = await self.breakout.wait_for_breakout()
             direction, price = state["direction"], state["price"]
 
-            # 3) execute the appropriate order
             if direction == "Buy":
-                print("Buy")
+                self.logger.info("direction: Buy")
                 await self.place_order.place_nifty_order(side="Buy", qty=75)
             else:
-                print("Sell")
+                self.logger.info("direction: Sell")
                 await self.place_order.place_nifty_order(side="Sell", qty=75)
-                await self.db.close()   
-                return True                   
+            await self.db.close()   
+            return True                   
 
         except Exception as e:
             self.logger.error(f"Error in LibertyFlow run: {e}", exc_info=True)

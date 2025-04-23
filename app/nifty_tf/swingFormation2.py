@@ -38,7 +38,7 @@ class LibertySwing():
             # Continue checking every 5 minutes until 12:25 PM
             while True:
                 # Hard stop at 12:25 PM
-                if datetime.now().time() >= time(12, 25):
+                if datetime.now().time() >= time(12, 25): ### Remove this later
                     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWH(): Breaced 12.25 PM.")
                     return False
@@ -97,7 +97,7 @@ class LibertySwing():
             # Continue checking every 5 minutes until 12:25 PM
             while True:
                 # Hard stop at 12:25 PM
-                if datetime.now().time() >= time(12, 25):
+                if datetime.now().time() >= time(12, 25): ### Remove this later
                     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWL(): Breaced 12.25 PM.")
                     return False

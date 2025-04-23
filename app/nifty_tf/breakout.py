@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from datetime import datetime
+from datetime import datetime, time
 
 from app.utils.logging import get_logger
 from app.config import settings
@@ -50,6 +50,7 @@ class LibertyBreakout:
             self._done_event = asyncio.Event()
             # Launch the watcher on its own asyncio task
             asyncio.create_task(self._watch_for_breakout())
+            asyncio.create_task(self.db.update_status(status='Awaiting Breakout'))
 
     async def wait_for_breakout(self):
         """
@@ -83,6 +84,7 @@ class LibertyBreakout:
         calls done_event.set() thread‐safely upon breakout.
         """
         def on_message(msg):
+            
             if not isinstance(msg, dict) or msg.get("type") != "sf":
                 return
 
