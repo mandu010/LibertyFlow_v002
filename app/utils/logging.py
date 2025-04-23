@@ -1,11 +1,14 @@
 # app/utils/logging.py
 import logging
 import sys
+import os
+from datetime import datetime
+
 from app.config import settings
 
 def setup_logging():
     """
-    Set up basic logging configuration for the application.
+    Set up basic logging configuration for the application with both console and file logging.
     """
     # Create basic formatter
     formatter = logging.Formatter(
@@ -25,14 +28,32 @@ def setup_logging():
     root_logger.handlers = []
     root_logger.addHandler(console_handler)
     
-    # Add file handler if specified in settings
+    # Create log directory if it doesn't exist
+    log_dir = settings.LOG_DIR if hasattr(settings, 'LOG_DIR') and settings.LOG_DIR else "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create timestamped log filename
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = os.path.join(log_dir, f"strategy_log_{timestamp}.log")
+    
+    # Create and add file handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+    
+    # Still respect settings.LOG_FILE if it exists (for backward compatibility)
     if hasattr(settings, 'LOG_FILE') and settings.LOG_FILE:
-        file_handler = logging.FileHandler(settings.LOG_FILE)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
+        additional_file_handler = logging.FileHandler(settings.LOG_FILE)
+        additional_file_handler.setFormatter(formatter)
+        root_logger.addHandler(additional_file_handler)
     
     # Reduce noise from third-party libraries
     logging.getLogger('asyncio').setLevel(logging.WARNING)
+    
+    # Log the start of the application
+    root_logger.info(f"Logging initialized, writing to: {log_file}")
+    
+    return log_file
 
 def get_logger(name):
     """
