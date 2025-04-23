@@ -2,11 +2,11 @@ import asyncio
 from datetime import datetime,time
 
 from app.nifty_tf.range import LibertyRange
-from app.nifty_tf.trigger import LibertyTrigger
 from app.nifty_tf.breakout import LibertyBreakout
 from app.utils.logging import get_logger
 from app.fyers.oms.nifty_tf_oms import Nifty_OMS
 from app.nifty_tf.swingFormation2 import LibertySwing
+from app.nifty_tf.trigger2 import LibertyTrigger
 
 class LibertyFlow:
     def __init__(self, db, fyers):
@@ -93,8 +93,10 @@ class LibertyFlow:
                     self.logger.info(f"Using trigger time: {trigger_time}")
                 print(f"Trigger Time: {trigger_time}")
 
-                swh_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))    
-                swl_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))                
+                swh_swing = LibertySwing(self.db, self.fyers)    
+                swl_swing = LibertySwing(self.db, self.fyers)                
+                # swh_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))    
+                # swl_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))                
                 #swingHigh = await self.swing.SWH()                
 
                 self.logger.info("Starting parallel swing formation and monitoring tasks")
@@ -129,7 +131,9 @@ class LibertyFlow:
                 # Get the SWH value from DB
                 sql = 'SELECT "swhPrice" FROM nifty.trigger_status WHERE date = CURRENT_DATE'
                 result = await self.db.fetch_query(sql)
-                self.swh_value = result[0]["swhPrice"] if result and "swhPrice" in result else None
+                if result is not None:
+                    self.logger.info(f"run_swh_formation(): {result}")
+                    self.swh_value = result[0]["swhPrice"]
                 
                 if self.swh_value:
                     self.logger.info(f"SWH formed with value: {self.swh_value}, notifying breakout system")
@@ -160,8 +164,6 @@ class LibertyFlow:
                     self.logger.info(f"SWL(): {result}")
                     self.swl_value = result[0]["swlPrice"]
 
-                #self.swl_value = result[0]["swlPrice"] if result and "swlPrice" in result else None
-                
                 if self.swl_value:
                     self.logger.info(f"SWL formed with value: {self.swl_value}, notifying breakout system")
                     

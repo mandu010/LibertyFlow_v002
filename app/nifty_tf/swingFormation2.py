@@ -43,13 +43,18 @@ class LibertySwing():
                     self.logger.info("SWH(): Breaced 12.25 PM.")
                     return False
 
+                trigger_time = await self.db.fetch_swing_trigger_time(swing="swhTime")
+                print("SWH()",trigger_time,type(trigger_time))
+                if trigger_time is None:
+                    return False
+                self.logger.info(f"SWH():trigger_time fetched from DB: {trigger_time}")
                 # If time is 9: 15, await till 9.20
                 if trigger_time == "09:15:00":
-                    if datetime.now().time() <= time(09, 20):
+                    if datetime.now().time() <= time(9, 20):
                         next_check = await self.trigger.get_next_5min_interval()
                         await self.trigger.wait_until_time(next_check)
 
-                trigger_time = self.db.fetch_swing_trigger_time(swing="swh")
+
                 df_data = await self.LibertyMarketData.fetch_5min_data()
                 df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(trigger_time).time()]
@@ -70,7 +75,7 @@ class LibertySwing():
                         df_cut = filtered_df_data.iloc[:-1]
                         max_high = df_cut['high'].max()
                         trigger_row = df_cut[df_cut['high'] == max_high]
-                        trigger_time = str(trigger_row['timestamp'].iloc[-1])
+                        trigger_time = str(trigger_row['timestamp'].iloc[-1].time())
                         sqlUpdate = f'''UPDATE nifty.trigger_status 
                         SET "swhTime" = '{trigger_time}'
                         WHERE date = CURRENT_DATE '''
@@ -96,14 +101,18 @@ class LibertySwing():
                     print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
                     self.logger.info("SWL(): Breaced 12.25 PM.")
                     return False
-
+                
+                trigger_time = await self.db.fetch_swing_trigger_time(swing="swlTime")
+                print("SWL()",trigger_time,type(trigger_time))
+                if trigger_time is None:
+                    return False
+                self.logger.info(f"SWL():trigger_time fetched from DB: {trigger_time}")
                 # If time is 9: 15, await till 9.20
                 if trigger_time == "09:15:00":
-                    if datetime.now().time() <= time(09, 20):
+                    if datetime.now().time() <= time(9, 20):
                         next_check = await self.trigger.get_next_5min_interval()
                         await self.trigger.wait_until_time(next_check)
 
-                trigger_time = self.db.fetch_swing_trigger_time(swing="swl")
                 df_data = await self.LibertyMarketData.fetch_5min_data()
                 df_data['timestamp'] = pd.to_datetime(df_data['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                 filtered_df_data = df_data[df_data['timestamp'].dt.time > pd.to_datetime(trigger_time).time()]
@@ -116,15 +125,17 @@ class LibertySwing():
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         ### Updating DB w/ SWL Price and Time
                         sqlTrue = f'''UPDATE nifty.trigger_status 
-                        SET "swhPrice" = {swlPrice}, "swlTime" = '{str(referenceCandle.iloc[-1]['timestamp'].time())}'
+                        SET "swlPrice" = {swlPrice}, "swlTime" = '{str(referenceCandle.iloc[-1]['timestamp'].time())}'
                         WHERE date = CURRENT_DATE '''
                         await self.db.execute_query(sqlTrue)
                         return True
                     else:
                         df_cut = filtered_df_data.iloc[:-1]
                         min_low = df_cut['low'].min()
-                        trigger_row = df_cut[df_cut['high'] == min_low]
-                        trigger_time = str(trigger_row['timestamp'].iloc[-1])
+                        trigger_row = df_cut[df_cut['low'] == min_low]
+                        self.logger.info(f"Trigger_row:{trigger_row},df_cut:{df_cut},min_low:{min_low}")
+                        print("SWL(),",trigger_row,trigger_row['timestamp'].iloc[-1].time())
+                        trigger_time = str(trigger_row['timestamp'].iloc[-1].time())
                         sqlUpdate = f'''UPDATE nifty.trigger_status 
                             SET "swlTime" = '{trigger_time}'
                             WHERE date = CURRENT_DATE '''

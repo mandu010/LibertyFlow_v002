@@ -1,7 +1,7 @@
 insert into nifty.range(range)
 values ('{
-        "datetime": "15-04-2025",
-        "high": 23872.7,
-        "low": 23311.9,
-        "pdc": 23851.3
+        "datetime": "22-04-2025",
+        "high": 24194.5,
+        "low": 23875.6
+        "pdc": 24169.00
     }')

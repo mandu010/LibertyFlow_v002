@@ -102,25 +102,17 @@ class LibertyDB:
 
     async def fetch_swing_trigger_time(self,swing):
         try:
-            if swing == "swh":
-                sql = f'''
-                        SELECT "swhTime" FROM nifty.trigger_status
-                        where date = CURRENT_DATE
-                        order by ctid DESC
-                        limit 1                
-                    ''' 
-            elif swing == "swl":
-                sql = f'''
-                        SELECT "swlTime" FROM nifty.trigger_status
-                        where date = CURRENT_DATE
-                        order by ctid DESC
-                        limit 1                
-                    '''                 
+            sql = f'''
+                    SELECT "{swing}" FROM nifty.trigger_status
+                    where date = CURRENT_DATE
+                    order by ctid DESC
+                    limit 1                
+                '''                 
             # Executing the SQL query 
             async with self.pool.acquire() as connection:
                 result = await connection.fetch(sql)
                 if result is not None:
-                    return str(result[0]['swhTime'])
+                    return str(result[0][swing])
                 else:
                     return None
         except Exception as e:
