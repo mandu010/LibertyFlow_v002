@@ -3,10 +3,10 @@ from datetime import datetime,time
 
 from app.nifty_tf.range import LibertyRange
 from app.nifty_tf.trigger import LibertyTrigger
-from app.nifty_tf.swingFormation import LibertySwing
 from app.nifty_tf.breakout import LibertyBreakout
 from app.utils.logging import get_logger
 from app.fyers.oms.nifty_tf_oms import Nifty_OMS
+from app.nifty_tf.swingFormation2 import LibertySwing
 
 class LibertyFlow:
     def __init__(self, db, fyers):
