@@ -68,8 +68,9 @@ class LibertyFlow:
                 else:
                     break
                     #continue ### Remove this later
-            await asyncio.sleep(5)
+
             if not any([pctTrigger]):
+                await asyncio.sleep(15)
                 pctTrigger = await self.trigger.pct_trigger(range_val)            
 
             if not any([pctTrigger, atrTrigger]):

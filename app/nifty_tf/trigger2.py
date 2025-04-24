@@ -106,12 +106,22 @@ class LibertyTrigger():
 
             if df.iloc[-2]['high'] > range['high'] or df.iloc[-2]['low'] < range['low']:
                 self.logger.info(f"range_break(): Triggered")
-
+                trigger_time = str(df['timestamp'].iloc[0].time())
                 sql = f'''UPDATE nifty.trigger_status 
-                SET range = TRUE, trigger_index = 0, trigger_time = '{df['timestamp'].iloc[0]}, swhTime = '{df['timestamp'].iloc[0]}, swlTime = '{df['timestamp'].iloc[0]}'
-                WHERE date = CURRENT_DATE '''
+                SET "range" = TRUE, "trigger_index" = 0, "trigger_time" = '{trigger_time}', "swhTime" = '{trigger_time}', "swlTime" = '{trigger_time}'
+                WHERE "date" = CURRENT_DATE '''
+                sql = f"""
+                        UPDATE nifty.trigger_status
+                        SET "range" = TRUE,
+                            "trigger_index" = 0,
+                            "trigger_time" = '{trigger_time}',
+                            "swhTime" = '{trigger_time}',
+                            "swlTime" = '{trigger_time}'
+                        WHERE "date" = CURRENT_DATE;
+                        """.strip()
                 await self.db.execute_query(sql)
-                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
+                asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
+                #await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Swing Formation' WHERE date = CURRENT_DATE") 
                 return True
             else:
                 self.logger.info(f"range_break(): Not Triggered.")                    
