@@ -8,6 +8,7 @@ import pytz
 
 from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
+from app.config import settings
 
 class LibertyTrigger():
     def __init__(self, db, fyers):
@@ -15,10 +16,11 @@ class LibertyTrigger():
         self.db = db
         self.fyers = fyers
         self.LibertyMarketData = LibertyMarketData(db, fyers)
+        self.symbol = settings.trade.NIFTY_SYMBOL
 
     async def pct_trigger(self, range) -> bool:
         try:
-            data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data={"symbol":self.symbol,
                   "resolution":"1",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),
@@ -65,7 +67,7 @@ class LibertyTrigger():
     async def ATR(self) -> bool:
         try:
             ### Getting Today's Data
-            data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data={"symbol":self.symbol,
                   "resolution":"5",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),
@@ -83,7 +85,7 @@ class LibertyTrigger():
 
             ### Getting Previous Day's Data
             for i in builtins.range(1, 6):
-                    data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+                    data={"symbol":self.symbol,
                             "resolution":"5",
                             "date_format":"1",
                             "range_from":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),
@@ -124,7 +126,7 @@ class LibertyTrigger():
         
     async def range_break(self, range) -> bool:
         try:
-            data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data={"symbol":self.symbol,
                   "resolution":"5",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),

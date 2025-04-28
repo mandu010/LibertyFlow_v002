@@ -1,20 +1,21 @@
-import json
-from app.utils.logging import get_logger
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import builtins
 
+from app.config import settings
+from app.utils.logging import get_logger
 
 class LibertyTrigger():
     def __init__(self, db, fyers):
         self.logger = get_logger("trigger")
         self.db = db
         self.fyers = fyers
+        self.symbol = settings.trade.NIFTY_SYMBOL
 
     async def pct_trigger(self, range) -> bool:
         try:
-            data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data={"symbol":self.symbol,
                   "resolution":"1",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),
@@ -59,7 +60,7 @@ class LibertyTrigger():
     async def ATR(self) -> bool:
         try:
             ### Getting Today's Data
-            data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data={"symbol":self.symbol,
                   "resolution":"5",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),
@@ -76,7 +77,7 @@ class LibertyTrigger():
 
             ### Getting Previous Day's Data
             for i in builtins.range(1, 6):
-                    data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+                    data={"symbol":self.symbol,
                             "resolution":"5",
                             "date_format":"1",
                             "range_from":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),
@@ -117,7 +118,7 @@ class LibertyTrigger():
         
     async def range_break(self, range) -> bool:
         try:
-            data={"symbol":f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data={"symbol":self.symbol,
                   "resolution":"5",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),

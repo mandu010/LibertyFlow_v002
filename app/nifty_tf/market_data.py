@@ -1,17 +1,18 @@
-from app.utils.logging import get_logger
 from datetime import datetime
 import pandas as pd
 import builtins
+
+from app.utils.logging import get_logger
 from datetime import datetime, timedelta
+from app.config import settings
 
 class LibertyMarketData:
     def __init__(self, db, fyers):
         self.logger= get_logger("Market Data")
         self.db= db
         self.fyers= fyers
-        #self.symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT"
         #self.symbol = "MCX:NATURALGAS25APRFUT" ### For Testing outside of market hours ### Remove this later
-        self.symbol = "NSE:NIFTY25MAYFUT" ### For Testing outside of market hours ### Remove this later
+        self.symbol = settings.trade.NIFTY_SYMBOL
 
     async def fetch_5min_data(self):
         try:

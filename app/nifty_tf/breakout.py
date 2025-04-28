@@ -12,6 +12,7 @@ class LibertyBreakout:
         self.logger = get_logger("LibertyBreakout")
         self.db = db
         self.fyers = fyers
+        self.symbol = settings.trade.NIFTY_SYMBOL
 
         # thresholds (set via monitor_breakouts)
         self.swh_price = None
@@ -30,8 +31,7 @@ class LibertyBreakout:
 
         # Fyers connection details
         self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
-        #self.futures_symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT" # "NSE:NIFTY25APRFUT"  # TODO: derive dynamically
-        self.futures_symbol = "NSE:NIFTY25MAYFUT"  # TODO: derive dynamically
+        self.futures_symbol = self.symbol
 
     async def monitor_breakouts(self, *, swh_price=None, swl_price=None):
         """

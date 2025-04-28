@@ -1,8 +1,10 @@
 import json
-from app.utils.logging import get_logger
 from datetime import datetime
 import pandas as pd
 import numpy as np
+
+from app.utils.logging import get_logger
+from app.config import settings
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -19,6 +21,7 @@ class LibertyRange:
         self.logger= get_logger("range")
         self.db= db
         self.fyers= fyers
+        self.symbol = settings.trade.NIFTY_SYMBOL
 
     async def read_range(self):
         try:
@@ -37,7 +40,7 @@ class LibertyRange:
     
     async def update_range(self, range) -> bool:
         try:
-            data = {"symbol": f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT",
+            data = {"symbol": self.symbol,
                     "resolution": "1D",
                     "date_format": "1",
                     "range_from": datetime.now().strftime('%Y-%m-%d'),

@@ -2,6 +2,8 @@ import json
 import logging
 import asyncpg
 import asyncio
+import urllib.parse
+
 from app.utils.logging import get_logger
 from app.config import settings
 
@@ -10,7 +12,8 @@ class LibertyDB:
         self.logger= get_logger("DB")
 
     async def connect(self):
-        dsn=f"postgresql://{settings.postgres.POSTGRES_USER}:{settings.postgres.POSTGRES_PASSWORD}@{settings.postgres.POSTGRES_HOST}:{settings.postgres.PORT}/{settings.postgres.POSTGRES_DB}"
+        encoded_password = urllib.parse.quote_plus(settings.postgres.POSTGRES_PASSWORD)
+        dsn=f"postgresql://{settings.postgres.POSTGRES_USER}:{encoded_password}@{settings.postgres.POSTGRES_HOST}:{settings.postgres.PORT}/{settings.postgres.POSTGRES_DB}"
         try:
             self.pool = await asyncpg.create_pool(
             min_size=1,

@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 class PostgresSettings(BaseSettings):
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "H59IE0C7SM-100")
-    PORT: int = int(os.getenv("POSTGRES_PORT"))
+    PORT: int = int(os.getenv("POSTGRES_PORT") or 5432)
     POSTGRES_USER: str = os.getenv("POSTGRES_USER")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB")
@@ -37,7 +37,16 @@ class FyersSettings(BaseSettings):
 
     model_config = {
         "extra": "ignore"
-    }     
+    }   
+
+class TradeSettings(BaseSettings):
+    NIFTY_LOT: int = int(os.getenv("NIFTY_LOT"))
+    NIFTY_LOT_SIZE: int = int(os.getenv("NIFTY_LOT_SIZE"))
+    NIFTY_SYMBOL: str = os.getenv("NIFTY_SYMBOL")
+
+    model_config = {
+        "extra": "ignore"
+    }       
 
 class AppSettings(BaseSettings):
     """Application-wide settings."""
@@ -55,6 +64,7 @@ class AppSettings(BaseSettings):
     # Nested settings
     postgres: PostgresSettings = PostgresSettings()
     fyers: FyersSettings = FyersSettings()
+    trade: TradeSettings = TradeSettings()
     
     # Performance settings
     WORKER_CONCURRENCY: int = int(os.getenv("WORKER_CONCURRENCY", "10"))
