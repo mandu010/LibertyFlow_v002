@@ -30,7 +30,8 @@ class LibertyBreakout:
 
         # Fyers connection details
         self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
-        self.futures_symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT" # "NSE:NIFTY25APRFUT"  # TODO: derive dynamically
+        #self.futures_symbol = f"NSE:NIFTY{datetime.now().strftime('%y%b').upper()}FUT" # "NSE:NIFTY25APRFUT"  # TODO: derive dynamically
+        self.futures_symbol = "NSE:NIFTY25MAYFUT"  # TODO: derive dynamically
 
     async def monitor_breakouts(self, *, swh_price=None, swl_price=None):
         """

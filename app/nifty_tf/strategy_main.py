@@ -79,7 +79,7 @@ class LibertyFlow:
             if not any([pctTrigger, atrTrigger, rangeTrigger]): ### Remove this later
                 rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val) ### Remove this later
 
-            #pctTrigger = True ### Remove this later
+            pctTrigger = True ### Remove this later
             ### Exiting if not Triggered
             if not any([pctTrigger, atrTrigger, rangeTrigger]):
                 self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
