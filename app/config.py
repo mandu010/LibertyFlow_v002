@@ -48,6 +48,14 @@ class TradeSettings(BaseSettings):
         "extra": "ignore"
     }       
 
+class SlackSettings(BaseSettings):
+    SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN")
+    SLACK_NIFTY_STATUS_WEBHOOK: str = os.getenv("SLACK_NIFTY_STATUS_WEBHOOK")
+
+    model_config = {
+        "extra": "ignore"
+    }       
+
 class AppSettings(BaseSettings):
     """Application-wide settings."""
     # General settings
@@ -65,6 +73,7 @@ class AppSettings(BaseSettings):
     postgres: PostgresSettings = PostgresSettings()
     fyers: FyersSettings = FyersSettings()
     trade: TradeSettings = TradeSettings()
+    slack: SlackSettings = SlackSettings()
     
     # Performance settings
     WORKER_CONCURRENCY: int = int(os.getenv("WORKER_CONCURRENCY", "10"))
