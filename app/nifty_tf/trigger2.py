@@ -64,7 +64,7 @@ class LibertyTrigger():
             df_prevDay['timestamp'] = pd.to_datetime(df_prevDay['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')         
 
             sqlTrue = f'''UPDATE nifty.trigger_status 
-            SET "atr" = TRUE, "trigger_index" = 0, "trigger_time" = '09:15:00', "swhTime" = ''09:15:00', "swlTime" = '09:15:00'
+            SET "atr" = TRUE, "trigger_index" = 0, "trigger_time" = '09:15:00', "swhTime" = '09:15:00', "swlTime" = '09:15:00'
             WHERE date = CURRENT_DATE '''
             sqlFalse = f'''UPDATE nifty.trigger_status 
             SET atr = FALSE
