@@ -1,9 +1,12 @@
 import math
 from datetime import datetime
 import pandas as pd
+import asyncio
 
 from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
+from app.config import settings
+from app.slack import slack
 
 class Nifty_OMS:
     def __init__(self, db, fyers):
@@ -11,6 +14,7 @@ class Nifty_OMS:
         self.db= db
         self.fyers= fyers
         self.LibertyMarketData = LibertyMarketData(db, fyers)
+        self.qty = settings.trade.NIFTY_LOT * settings.trade.NIFTY_LOT_SIZE
 
     async def calculateATM(self, strike_interval=50):
         ltp = self.LibertyMarketData.fetch_quick_LTP
@@ -19,15 +23,15 @@ class Nifty_OMS:
         else:
             raise Exception
         
-    async def place_nifty_order(self,side,qty):
+    async def place_nifty_order(self,side):
         try:
             symbol = await self.get_symbol(side)
-            print(symbol)
+            self.logger.info(f"Placing order for: {symbol}")
             data={
                 'productType':'INTRADAY',
                 'side': 1,
                 'symbol': symbol,
-                'qty': qty,
+                'qty': self.qty,
                 'type': 2,
                 'validity':'DAY'
             }
