@@ -8,6 +8,7 @@ from app.db.dbclass import db
 from app.fyers.client import fyersClient
 from app.nifty_tf.strategy_main import LibertyFlow
 #from app.nifty_tf.strategy_main_test import LibertyFlow
+from app.slack import slack
 
 logger = get_logger("MAIN")
 
@@ -17,6 +18,7 @@ async def main():
     # Setup logging first
     setup_logging()
     logger.info("Starting Liberty Flow...")
+    asyncio.create_task(slack.send_message("Starting Liberty Flow..."))
     
     try:
         # Initialize database connection

@@ -7,6 +7,7 @@ from app.utils.logging import get_logger
 from app.fyers.oms.nifty_tf_oms import Nifty_OMS
 from app.nifty_tf.swingFormation2 import LibertySwing
 from app.nifty_tf.trigger2 import LibertyTrigger
+from app.slack import slack
 
 class LibertyFlow:
     def __init__(self, db, fyers):
@@ -76,10 +77,9 @@ class LibertyFlow:
             if not any([pctTrigger, atrTrigger]):
                 atrTrigger = await self.trigger.ATR()
 
-            if not any([pctTrigger, atrTrigger, rangeTrigger]): ### Remove this later
-                rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val) ### Remove this later
+            if not any([pctTrigger, atrTrigger, rangeTrigger]): 
+                rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val)
 
-            pctTrigger = True ### Remove this later
             ### Exiting if not Triggered
             if not any([pctTrigger, atrTrigger, rangeTrigger]):
                 self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
@@ -96,9 +96,6 @@ class LibertyFlow:
 
                 swh_swing = LibertySwing(self.db, self.fyers)    
                 swl_swing = LibertySwing(self.db, self.fyers)                
-                # swh_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))    
-                # swl_swing = LibertySwing(self.db, self.fyers, trigger_time=str(trigger_time))                
-                #swingHigh = await self.swing.SWH()                
 
                 self.logger.info("Starting parallel swing formation and monitoring tasks")
                 await asyncio.gather(
@@ -107,15 +104,19 @@ class LibertyFlow:
                     self.monitor_trading_session()
                 )
             self.logger.info("Awaiting done_event")
+            asyncio.create_task(slack.send_message("Awaiting done_event"))
             state = await self.breakout.wait_for_breakout()
             direction, price = state["direction"], state["price"]
 
             if direction == "Buy":
                 self.logger.info("direction: Buy")
+                asyncio.create_task(slack.send_message("Order Placed: Long"))
                 await self.place_order.place_nifty_order(side="Buy", qty=75)
             else:
                 self.logger.info("direction: Sell")
+                asyncio.create_task(slack.send_message("Order Placed: Short"))
                 await self.place_order.place_nifty_order(side="Sell", qty=75)
+
             await self.db.close()   
             return True                   
 

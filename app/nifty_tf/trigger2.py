@@ -8,6 +8,7 @@ import pytz
 
 from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
+from app.slack import slack
 
 class LibertyTrigger():
     def __init__(self, db, fyers):
@@ -29,6 +30,7 @@ class LibertyTrigger():
             WHERE date = CURRENT_DATE '''
             
             change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
+            asyncio.create_task(slack.send_message(f"Percent Change is {change}"))
             if change >= 0.4:
                 self.logger.info(f"pct_trigger(): Triggered")
                 await self.db.execute_query(sqlTrue) 
@@ -76,6 +78,7 @@ class LibertyTrigger():
             else:
                 atrVal = 0
             self.logger.info(f"ATR(): ATR Value: {atrVal}")
+            asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}"))
             if atrVal >= 300:
                 await self.db.execute_query(sqlTrue)
                 await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
@@ -121,7 +124,8 @@ class LibertyTrigger():
                         """.strip()
                 await self.db.execute_query(sql)
                 asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
-                #await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Swing Formation' WHERE date = CURRENT_DATE") 
+                asyncio.create_task(slack.send_message(f"range_break(): Triggered."))
+                self.logger.info(f"range_break(): Triggered.")                    
                 return True
             else:
                 self.logger.info(f"range_break(): Not Triggered.")                    

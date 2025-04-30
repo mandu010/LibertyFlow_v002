@@ -1,276 +1,214 @@
 """
-Slack client for Liberty Flow trading system using slack_sdk.
-Handles communication with Slack API to send messages and alerts.
+Slack integration module for Liberty Flow trading system.
+Provides asynchronous messaging capabilities to send trading updates to Slack channels.
 """
-
-import os
+import asyncio
 import logging
-from typing import Dict, Any, Optional, List, Union
-from dotenv import load_dotenv
-
-from slack_sdk import WebClient
-from slack_sdk.webhook import WebhookClient
+from typing import Optional, Dict, Any, Union
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_sdk.webhook.async_client import AsyncWebhookClient
 from slack_sdk.errors import SlackApiError
 
-# Setup logging
-logger = logging.getLogger(__name__)
+from app.config import settings, get_logger
 
-class SlackClient:
-    """Client for sending messages and alerts to Slack using slack_sdk."""
-    
-    def __init__(
-        self, 
-        webhook_url: Optional[str] = None,
-        bot_token: Optional[str] = None,
-        default_channel: Optional[str] = None
-    ):
+logger = get_logger(__name__)
+
+class SlackNotifier:
+    """
+    Handles asynchronous Slack notifications for the Liberty Flow trading system.
+    Supports both Slack API (bot token) and webhook methods.
+    """
+    def __init__(self):
+        self._client = AsyncWebClient(token=settings.slack.SLACK_BOT_TOKEN) if settings.slack.SLACK_BOT_TOKEN else None
+        self._webhook = AsyncWebhookClient(settings.slack.SLACK_NIFTY_STATUS_WEBHOOK) if settings.slack.SLACK_NIFTY_STATUS_WEBHOOK else None
+        
+        if not self._client and not self._webhook:
+            logger.warning("No Slack credentials configured. Slack notifications will be disabled.")
+            
+    async def send_message(self, 
+                          message: str, 
+                          channel: Optional[str] = None, 
+                          blocks: Optional[list] = None,
+                          attachments: Optional[list] = None) -> bool:
         """
-        Initialize Slack client.
+        Send a message to Slack asynchronously.
         
         Args:
-            webhook_url: Slack webhook URL. If None, will attempt to load from .env file.
-            bot_token: Slack Bot Token. If None, will attempt to load from .env file.
-            default_channel: Default channel to send messages to (for WebClient).
-        """
-        # Load environment variables if credentials not provided
-        if webhook_url is None or bot_token is None:
-            load_dotenv()
-            
-        self.webhook_url = webhook_url or os.getenv("SLACK_WEBHOOK_URL")
-        self.bot_token = bot_token or os.getenv("SLACK_BOT_TOKEN")
-        self.default_channel = default_channel or os.getenv("SLACK_DEFAULT_CHANNEL")
-        
-        # Initialize clients
-        self.webhook_client = None
-        self.web_client = None
-        
-        if self.webhook_url:
-            self.webhook_client = WebhookClient(self.webhook_url)
-            logger.info("Initialized Slack WebhookClient")
-        
-        if self.bot_token:
-            self.web_client = WebClient(token=self.bot_token)
-            logger.info("Initialized Slack WebClient")
-            
-        if not self.webhook_client and not self.web_client:
-            logger.warning("No Slack credentials provided. Messages will not be sent.")
-    
-    def send_message(self, 
-                    message: str, 
-                    channel: Optional[str] = None,
-                    blocks: Optional[List[Dict[str, Any]]] = None,
-                    thread_ts: Optional[str] = None) -> bool:
-        """
-        Send a text message to Slack.
-        
-        Args:
-            message: Message text to send
-            channel: Channel to send to (required for WebClient, optional for WebhookClient)
-            blocks: Optional block formatting for the message
-            thread_ts: Optional thread timestamp to reply in a thread
+            message: The text message to send
+            channel: The Slack channel to send to (only used with bot token method)
+            blocks: Optional formatted message blocks
+            attachments: Optional message attachments
             
         Returns:
             bool: True if message was sent successfully, False otherwise
         """
-        # Try to send with WebClient if available
-        if self.web_client:
-            try:
-                response = self.web_client.chat_postMessage(
-                    channel=channel or self.default_channel,
-                    text=message,
-                    blocks=blocks,
-                    thread_ts=thread_ts
-                )
-                logger.debug(f"Sent message via WebClient: {message[:50]}...")
-                return True
-            except SlackApiError as e:
-                logger.error(f"Error sending message via WebClient: {e.response['error']}")
-                # Fall back to webhook if WebClient fails
-        
-        # Try to send with WebhookClient if available
-        if self.webhook_client:
-            try:
-                response = self.webhook_client.send(
-                    text=message,
-                    blocks=blocks
-                )
-                if response.status_code == 200:
-                    logger.debug(f"Sent message via WebhookClient: {message[:50]}...")
-                    return True
-                else:
-                    logger.error(f"Error sending message via WebhookClient. Status: {response.status_code}")
-            except Exception as e:
-                logger.error(f"Error sending message via WebhookClient: {str(e)}")
-        
-        return False
+        try:
+            # Try webhook first if available (doesn't require channel)
+            if self._webhook:
+                return await self._send_webhook(message, blocks, attachments)
+            
+            # Fall back to API client if webhook not available
+            elif self._client and channel:
+                return await self._send_api(channel, message, blocks, attachments)
+            
+            # Log and return if neither method can be used
+            elif self._client and not channel:
+                logger.error("Channel is required when sending messages via Slack API")
+                return False
+            else:
+                logger.debug(f"Slack notification not sent (disabled): {message}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to send Slack notification: {str(e)}")
+            return False
     
-    def send_alert(self, 
-                  title: str, 
-                  message: str, 
-                  level: str = "info", 
-                  fields: Optional[List[Dict[str, str]]] = None,
-                  channel: Optional[str] = None,
-                  thread_ts: Optional[str] = None) -> bool:
+    async def _send_webhook(self, 
+                           message: str, 
+                           blocks: Optional[list] = None,
+                           attachments: Optional[list] = None) -> bool:
+        """Send message via webhook"""
+        try:
+            response = await self._webhook.send(
+                text=message,
+                blocks=blocks,
+                attachments=attachments
+            )
+            if response.status_code == 200:
+                return True
+            else:
+                logger.error(f"Webhook error: {response.status_code}, {response.body}")
+                return False
+        except Exception as e:
+            logger.error(f"Webhook send error: {str(e)}")
+            return False
+    
+    async def _send_api(self, 
+                       channel: str,
+                       message: str, 
+                       blocks: Optional[list] = None,
+                       attachments: Optional[list] = None) -> bool:
+        """Send message via Slack API"""
+        try:
+            response = await self._client.chat_postMessage(
+                channel=channel,
+                text=message,
+                blocks=blocks,
+                attachments=attachments
+            )
+            return True
+        except SlackApiError as e:
+            logger.error(f"Slack API error: {e.response['error']}")
+            return False
+            
+    async def send_status_update(self, status: str, details: Optional[Dict[str, Any]] = None) -> bool:
         """
-        Send a formatted alert message to Slack.
+        Send a formatted status update for the trading system
         
         Args:
-            title: Alert title
-            message: Alert message text
-            level: Alert level (info, warning, error, success)
-            fields: Optional list of field dictionaries with 'title' and 'value' keys
-            channel: Optional channel override
-            thread_ts: Optional thread timestamp to reply in a thread
+            status: The current system status
+            details: Optional dictionary with additional details
             
         Returns:
-            bool: True if alert was sent successfully, False otherwise
+            bool: Success status
         """
-        # Set emoji based on level
-        emoji_map = {
-            "info": ":information_source:",
-            "warning": ":warning:",
-            "error": ":x:",
-            "success": ":white_check_mark:",
-        }
-        emoji = emoji_map.get(level.lower(), ":information_source:")
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Status Update:* `{status}`"
+                }
+            }
+        ]
         
-        # Create blocks for the message
+        if details:
+            fields = []
+            for key, value in details.items():
+                fields.append({
+                    "type": "mrkdwn",
+                    "text": f"*{key}:*\n{value}"
+                })
+                
+            if fields:
+                blocks.append({
+                    "type": "section",
+                    "fields": fields[:10]  # Max 10 fields per section
+                })
+        
+        return await self.send_message(
+            message=f"Status Update: {status}",
+            blocks=blocks
+        )
+    
+    async def send_breakout_alert(self, 
+                                 direction: str, 
+                                 price: float, 
+                                 option_details: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Send a breakout alert notification
+        
+        Args:
+            direction: "LONG" or "SHORT"
+            price: The breakout price
+            option_details: Optional dictionary with option trade details
+            
+        Returns:
+            bool: Success status
+        """
+        color = "#36a64f" if direction == "LONG" else "#ff2b2b"
+        
         blocks = [
             {
                 "type": "header",
                 "text": {
                     "type": "plain_text",
-                    "text": f"{title}"
+                    "text": f"🚨 {direction} BREAKOUT DETECTED 🚨",
+                    "emoji": True
                 }
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"{emoji} {message}"
+                    "text": f"*Breakout Price:* `{price}`"
                 }
             }
         ]
         
-        # Add fields if provided
-        if fields and len(fields) > 0:
-            field_blocks = []
-            
-            # Process fields in pairs for two-column layout
-            for i in range(0, len(fields), 2):
-                field_pair = []
-                
-                # Add first field
-                field_pair.append({
-                    "type": "mrkdwn",
-                    "text": f"*{fields[i]['title']}*\n{fields[i]['value']}"
-                })
-                
-                # Add second field if it exists
-                if i + 1 < len(fields):
-                    field_pair.append({
-                        "type": "mrkdwn",
-                        "text": f"*{fields[i+1]['title']}*\n{fields[i+1]['value']}"
-                    })
-                
-                # Add section with this pair of fields
-                blocks.append({
-                    "type": "section",
-                    "fields": field_pair
-                })
-            
-        # Add divider
-        blocks.append({"type": "divider"})
+        attachments = [{
+            "color": color,
+            "blocks": []
+        }]
         
-        # Add fallback text
-        text = f"{title}: {message}"
-        
-        return self.send_message(
-            message=text,
-            blocks=blocks,
-            channel=channel,
-            thread_ts=thread_ts
-        )
-    
-    def send_strategy_alert(self, 
-                           status: str,
-                           details: Dict[str, Any],
-                           channel: Optional[str] = None,
-                           thread_ts: Optional[str] = None) -> bool:
-        """
-        Send a Liberty Flow strategy status alert.
-        
-        Args:
-            status: Strategy status (one of the defined strategy statuses)
-            details: Dictionary containing strategy details
-            channel: Optional channel override
-            thread_ts: Optional thread timestamp to reply in a thread
-            
-        Returns:
-            bool: True if alert was sent successfully, False otherwise
-        """
-        # Map status to alert level
-        status_level_map = {
-            "Awaiting Trigger": "info",
-            "Awaiting Swing Formation": "info",
-            "Awaiting Breakouts of any 1 of the swing formed": "warning",
-            "Trailing": "success",
-            "Not Triggered -> Exit": "info",
-            "Swing formed but not broken out -> Exit": "warning",
-            "Exited": "success"
-        }
-        
-        level = status_level_map.get(status, "info")
-        
-        # Create fields for the alert
-        fields = []
-        for key, value in details.items():
-            if key != "status":  # Status is already in the title
+        if option_details:
+            fields = []
+            for key, value in option_details.items():
                 fields.append({
-                    "title": key.replace("_", " ").title(),
-                    "value": str(value)
+                    "type": "mrkdwn",
+                    "text": f"*{key}:*\n{value}"
+                })
+                
+            if fields:
+                attachments[0]["blocks"].append({
+                    "type": "section",
+                    "fields": fields[:10]  # Max 10 fields per section
                 })
         
-        return self.send_alert(
-            title=f"Liberty Flow: {status}",
-            message=f"Strategy status update: {status}",
-            level=level,
-            fields=fields,
-            channel=channel,
-            thread_ts=thread_ts
+        return await self.send_message(
+            message=f"{direction} BREAKOUT at {price}",
+            blocks=blocks,
+            attachments=attachments
         )
-        
-    def upload_file(self,
-                   file_path: str,
-                   title: Optional[str] = None,
-                   initial_comment: Optional[str] = None,
-                   channel: Optional[str] = None) -> bool:
-        """
-        Upload a file to Slack.
-        Requires WebClient (Bot Token).
-        
-        Args:
-            file_path: Path to the file to upload
-            title: Optional title for the file
-            initial_comment: Optional comment to add with the file
-            channel: Channel to upload to (if None, uses default)
-            
-        Returns:
-            bool: True if file was uploaded successfully, False otherwise
-        """
-        if not self.web_client:
-            logger.error("Cannot upload file: WebClient not initialized (Bot Token required)")
-            return False
-            
-        try:
-            response = self.web_client.files_upload_v2(
-                channel=channel or self.default_channel,
-                file=file_path,
-                title=title,
-                initial_comment=initial_comment
-            )
-            logger.debug(f"Uploaded file {file_path} to Slack")
-            return True
-        except SlackApiError as e:
-            logger.error(f"Error uploading file: {e.response['error']}")
-            return False
+
+# Create a global instance to be imported elsewhere
+slack = SlackNotifier()
+
+async def test_slack():
+    """Test function to verify Slack integration is working"""
+    success = await slack.send_message("Test message from Liberty Flow")
+    if success:
+        logger.info("Slack test message sent successfully")
+    else:
+        logger.error("Failed to send Slack test message")
+    return success
