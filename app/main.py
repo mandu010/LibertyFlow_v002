@@ -14,7 +14,6 @@ logger = get_logger("MAIN")
 
 async def main():
     #global db, fyers_client
-    
     # Setup logging first
     setup_logging()
     logger.info("Starting Liberty Flow...")
@@ -29,8 +28,6 @@ async def main():
         # Initialize Fyers client
         logger.info("Initializing Fyers client...")
         fyers = await fyersClient.connect()
-        #await fyersClient.connect()
-        #if (await fyersClient.connect()) is not None:
         if fyers is not None:
             print("Fyers client connected successfully")
             logger.info("Fyers client initialized")
@@ -38,14 +35,8 @@ async def main():
             logger.error("Fyers client initialization failed")
             return 1
         
-        # Initialize Strategy
+        # Initializing & Running Strategy
         strategy = LibertyFlow(db, fyers)
-
-        # Keep application running until interrupted
-        logger.info("Application is now running. Press CTRL+C to exit.")
-        
-        # This is a simple way to keep the application running
-        # Replace this with your actual application logic later
         await strategy.run()   
             
     except Exception as e:

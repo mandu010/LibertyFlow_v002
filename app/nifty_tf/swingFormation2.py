@@ -44,10 +44,10 @@ class LibertySwing():
                     return False
 
                 trigger_time = await self.db.fetch_swing_trigger_time(swing="swhTime")
-                print("SWH()",trigger_time,type(trigger_time))
                 if trigger_time is None:
                     return False
                 self.logger.info(f"SWH():trigger_time fetched from DB: {trigger_time}")
+
                 # If time is 9: 15, await till 9.20
                 if trigger_time == "09:15:00":
                     if datetime.now().time() <= time(9, 20):
@@ -65,6 +65,7 @@ class LibertySwing():
                         self.logger.info("SWH(): Swing High Found")
                         swhPrice = math.ceil(referenceCandle.iloc[-1]['high'])              
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+                        
                         ### Updating DB w/ SWH Price and Time
                         sqlTrue = f'''UPDATE nifty.trigger_status 
                         SET "swhPrice" = {swhPrice}, "swhTime" = '{str(referenceCandle.iloc[-1]['timestamp'].time())}'

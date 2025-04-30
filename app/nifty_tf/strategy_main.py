@@ -61,14 +61,13 @@ class LibertyFlow:
                 if triggerStatus[0]['atr'] is not None: atrTrigger = bool(triggerStatus[0]['atr'])
                 if triggerStatus[0]['range'] is not None: rangeTrigger = bool(triggerStatus[0]['range'])
 
-            ### Wait until Market start
+            ### Wait until Market start if before 9.15
             while True:
                 if datetime.now().time() < time(9, 15):
                     next_check = await self.trigger.get_next_5min_interval()
                     await self.trigger.wait_until_time(next_check)
                 else:
                     break
-                    #continue ### Remove this later
 
             if not any([pctTrigger]):
                 await asyncio.sleep(15)
@@ -94,10 +93,12 @@ class LibertyFlow:
                     self.logger.info(f"Using trigger time: {trigger_time}")
                 print(f"Trigger Time: {trigger_time}")
 
+                # Initializing Swing Class
                 swh_swing = LibertySwing(self.db, self.fyers)    
                 swl_swing = LibertySwing(self.db, self.fyers)                
 
                 self.logger.info("Starting parallel swing formation and monitoring tasks")
+                asyncio.create_task(slack.send_message("Starting parallel swing formation and monitoring tasks"))
                 await asyncio.gather(
                     self.run_swh_formation(swh_swing),
                     self.run_swl_formation(swl_swing),
