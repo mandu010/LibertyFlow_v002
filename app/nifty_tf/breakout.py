@@ -140,9 +140,3 @@ class LibertyBreakout:
             on_close=on_close,
         )
         ws.connect()  # blocks until closed
-
-    # ——————————————————————————————————————————————————————————
-    # Your existing order placement helpers can remain exactly as they are:
-    #   process_buy_breakout(), process_sell_breakout(),
-    #   calculate_atm_strike(), find_delta_option(), update_db_with_order(), etc.
-    # ——————————————————————————————————————————————————————————

@@ -34,6 +34,7 @@ class FyersSettings(BaseSettings):
     FYERS_GRANT_TYPE: str = os.getenv("FYERS_GRANT_TYPE")
     FYERS_AUTHORIZATION_TOKEN: str = os.getenv("FYERS_AUTHORIZATION_TOKEN")
     FYERS_ACCESS_TOKEN: str = os.getenv("FYERS_ACCESS_TOKEN")
+    FYERS_2FA: str = os.getenv("FYERS_2FA")
 
     model_config = {
         "extra": "ignore"

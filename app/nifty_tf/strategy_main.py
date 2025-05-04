@@ -104,8 +104,8 @@ class LibertyFlow:
                     self.run_swl_formation(swl_swing),
                     self.monitor_trading_session()
                 )
-            self.logger.info("Awaiting done_event")
-            asyncio.create_task(slack.send_message("Awaiting done_event"))
+            self.logger.info("Awaiting Breakout")
+            asyncio.create_task(slack.send_message("Awaiting Breakout"))
             state = await self.breakout.wait_for_breakout()
             direction, price = state["direction"], state["price"]
 
@@ -141,6 +141,7 @@ class LibertyFlow:
                 if self.swh_value:
                     self.logger.info(f"SWH formed with value: {self.swh_value}, notifying breakout system")
                     
+                    asyncio.create_task(slack.send_message("Starting Breakout Monitor for SWH"))
                     # Start or update breakout monitor with SWH value
                     await self.breakout.monitor_breakouts(swh_price=self.swh_value)
                     
@@ -170,6 +171,7 @@ class LibertyFlow:
                 if self.swl_value:
                     self.logger.info(f"SWL formed with value: {self.swl_value}, notifying breakout system")
                     
+                    asyncio.create_task(slack.send_message("Starting Breakout Monitor for SWL"))
                     # Start or update breakout monitor with SWL value
                     await self.breakout.monitor_breakouts(swl_price=self.swl_value)
                     
