@@ -104,22 +104,24 @@ class LibertyTrigger():
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')                        
             self.logger.info(f"range_break(): Checking")
 
-            if df.iloc[-2]['high'] > range['high'] or df.iloc[-2]['low'] < range['low']:
-                self.logger.info(f"range_break(): Triggered")
+            #if df.iloc[-2]['high'] > range['high'] or df.iloc[-2]['low'] < range['low']:
+            for i,r in df.iterrows():
+                if df.iloc[i]['high'] > range['high'] or df.iloc[i]['low'] < range['low']:
+                    self.logger.info(f"range_break(): Triggered")
 
-                sql = f'''UPDATE nifty.trigger_status 
-                SET range = TRUE, trigger_index = 0, trigger_time = '{df['timestamp'].iloc[0]}'
-                WHERE date = CURRENT_DATE '''
-                await self.db.execute_query(sql)
-                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
-                return True
-            else:
-                self.logger.info(f"range_break(): Not Triggered.")                    
-                sql = '''UPDATE nifty.trigger_status 
-                SET range = FALSE
-                WHERE date = CURRENT_DATE '''                    
-                await self.db.execute_query(sql)
-                return False
+                    sql = f'''UPDATE nifty.trigger_status 
+                    SET range = TRUE, trigger_index = 0, trigger_time = '{df['timestamp'].iloc[i]}'
+                    WHERE date = CURRENT_DATE '''
+                    await self.db.execute_query(sql)
+                    await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
+                    return True
+                else:
+                    self.logger.info(f"range_break(): Not Triggered.")                    
+                    sql = '''UPDATE nifty.trigger_status 
+                    SET range = FALSE
+                    WHERE date = CURRENT_DATE '''                    
+                    await self.db.execute_query(sql)
+                    return False
                     
         except Exception as e:
             self.logger.error(f"range_break(): Error fetching min1 data: {e}", exc_info=True)
