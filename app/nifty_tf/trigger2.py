@@ -78,7 +78,8 @@ class LibertyTrigger():
             else:
                 atrVal = 0
             self.logger.info(f"ATR(): ATR Value: {atrVal}")
-            asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}"))
+            #asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}"))
+            await slack.send_message(f"ATR(): ATR Value: {atrVal}")
             if atrVal >= 300:
                 await self.db.execute_query(sqlTrue)
                 await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
@@ -124,7 +125,8 @@ class LibertyTrigger():
                         """.strip()
                 await self.db.execute_query(sql)
                 asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
-                asyncio.create_task(slack.send_message(f"range_break(): Triggered."))
+                #asyncio.create_task(slack.send_message(f"range_break(): Triggered."))
+                await slack.send_message(f"range_break(): Triggered.")
                 self.logger.info(f"range_break(): Triggered.")                    
                 return True
             else:

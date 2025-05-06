@@ -101,8 +101,8 @@ class LibertyFlow:
                 asyncio.create_task(slack.send_message("Starting parallel swing formation and monitoring tasks"))
                 await asyncio.gather(
                     self.run_swh_formation(swh_swing),
-                    self.run_swl_formation(swl_swing),
-                    self.monitor_trading_session()
+                    self.run_swl_formation(swl_swing)
+                    #self.monitor_trading_session()
                 )
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout"))
@@ -254,3 +254,11 @@ class LibertyFlow:
             except Exception as e:
                 self.logger.error(f"Error monitoring trading session: {e}", exc_info=True)
                 self.events["trading_complete"].set()  # Set the event to prevent hanging
+
+    async def monitor_trading_session_temp(self):
+        try:
+            while True:
+                if datetime.now().time() >= time(13, 00): 
+                    asyncio.create_task(slack.send_message("Stop Algo."))
+        except Exception as e:
+            asyncio.create_task(slack.send_message("Stop Algo."))

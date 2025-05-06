@@ -58,6 +58,17 @@ class SlackSettings(BaseSettings):
         "extra": "ignore"
     }       
 
+class UpstoxSettings(BaseSettings):
+    UPSTOX_APP_ID: str = os.getenv("UPSTOX_APP_ID")
+    UPSTOX_APP_SECRET: str = os.getenv("UPSTOX_APP_SECRET")
+    UPSTOX_2FA: str = os.getenv("UPSTOX_2FA")
+    UPSTOX_ACCESS_TOKEN: str = os.getenv("UPSTOX_ACCESS_TOKEN")
+    UPSTOX_REDIRECT_URI: str = os.getenv("UPSTOX_REDIRECT_URI")
+
+    model_config = {
+        "extra": "ignore"
+    }       
+
 class AppSettings(BaseSettings):
     """Application-wide settings."""
     # General settings
@@ -76,6 +87,7 @@ class AppSettings(BaseSettings):
     fyers: FyersSettings = FyersSettings()
     trade: TradeSettings = TradeSettings()
     slack: SlackSettings = SlackSettings()
+    upstox: UpstoxSettings = UpstoxSettings()    
     
     # Performance settings
     WORKER_CONCURRENCY: int = int(os.getenv("WORKER_CONCURRENCY", "10"))

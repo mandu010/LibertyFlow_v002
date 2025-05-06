@@ -2,9 +2,11 @@ import json
 from datetime import datetime
 import pandas as pd
 import numpy as np
+import asyncio
 
 from app.utils.logging import get_logger
 from app.config import settings
+from app.slack import slack
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -71,30 +73,36 @@ class LibertyRange:
                 if (df.iloc[0]['close'] < (range['high'] + range['high']*0.001) and 
                     df.iloc[0]['close'] > (range['low'] - range['low']*0.001)):
                     self.logger.info(f"update_range(): Today's candle is within the range")
+                    await slack.send_message("Closed Within Range Today")
                     value = {
                             "datetime": datetime.now().strftime('%Y-%m-%d'),
                             "high": convert_to_json_serializable(range['high']),
                             "low": convert_to_json_serializable(range['low']),
                             "pdc": convert_to_json_serializable(df.iloc[0]['close'])
                             }
+                    
                 # Above Range
                 elif (df.iloc[0]['close'] > (range['high'] + range['high']*0.001)):
                     self.logger.info(f"update_range(): Today's candle is above the range")
+                    await slack.send_message("Closed Above Range Today")
                     value = {
                             "datetime": datetime.now().strftime('%Y-%m-%d'),
                             "high": convert_to_json_serializable(df.iloc[0]['high']),
                             "low": convert_to_json_serializable(df.iloc[0]['low']),
                             "pdc": convert_to_json_serializable(df.iloc[0]['close'])
                             }
+                    
                 # Below Range
                 elif (df.iloc[0]['close'] < (range['low'] - range['low']*0.001)):
                     self.logger.info(f"update_range(): Today's candle is below the range")
+                    await slack.send_message("Closed Below Range Today")
                     value = {
                             "datetime": datetime.now().strftime('%Y-%m-%d'),
                             "high": convert_to_json_serializable(df.iloc[0]['high']),
                             "low": convert_to_json_serializable(df.iloc[0]['low']),
                             "pdc": convert_to_json_serializable(df.iloc[0]['close'])
                             }
+                    
                 
                 # Check if value was set in any of the conditions
                 if value:
@@ -105,6 +113,7 @@ class LibertyRange:
                         """
                     await self.db.execute_query(sql)
                     self.logger.info(f"update_range(): Range updated successfully in DB with Value: {value}")
+                    await slack.send_message(f"Updated: {value}")
                     return True
                 else:
                     self.logger.warning("update_range(): No condition met for updating range")
