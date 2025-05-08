@@ -250,4 +250,48 @@ class Nifty_OMS:
         ws.connect() 
 
     async def exit_position(self):
-        print("Exit here")
+        self.logger.info(f"exit_position(): Starting to Exit Postions")
+        openPosition=[]
+        positions = self.fyers.positions()
+        for position in positions['netPositions']:
+            print(position)
+            if position['netQty'] == 0:
+                openPosition.append(position)
+        self.logger.info(f"exit_position(): Found {len(openPosition)} Open Positions")
+        for exitPosition in openPosition:
+            symbol = exitPosition['symbol']
+            qty = exitPosition['qty']
+            initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+            bid_price = initial_quote['bid']
+            max_price = self.round_to_nearest_half(initial_quote['bid'] - (initial_quote['bid'] * 0.1))  # Setting Max Price at 10% of ask price
+            limit_price = self.round_to_nearest_half(initial_quote['bid'] - initial_quote['bid'] * 0.01) # Setting Limit Price at 1% of ask price
+            counter = 1
+            data={
+                'productType':'INTRADAY',
+                'side': -1,
+                'symbol': symbol,
+                'qty': self.qty,
+                'type': 1,
+                'validity':'DAY',
+                'limitPrice': limit_price,
+                'orderTag': 'NiftyTF'
+            }
+            response = self.fyers.place_order(data)
+            print(response)
+            if response['s'] == "ok":
+                order_id = response['id']
+                # asyncio.create_task(self.LibertyMarketData.insert_order_data(orderID=order_id))
+            else:
+                self.logger.error("exit_position(): Failed to Place Exit Order")
+                await slack.send_message(f"exit_position(): Failed to Place Exit Order \n Exit manually for {symbol} Response: {response}")
+                return False
+            
+            self.logger.info(f"Exit Order Placed. Response:{response}\n")
+
+            await asyncio.sleep(1)  # Waiting for a second for order to process, maybe will need to increase later
+            placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+            print(f"exit_position():{placed_order_status}, {type(placed_order_status)}")
+            if placed_order_status == 2:
+                await slack.send_message(f"exit_position(): Exited Successfully for {symbol} Response: {response}")
+                return True
+
