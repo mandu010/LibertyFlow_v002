@@ -24,6 +24,10 @@ class Nifty_OMS:
     def round_to_nearest_half(value):
         return math.ceil(value * 2) / 2
     
+    @staticmethod
+    def round_to_nearest_0025(value):
+        return round(value)
+    
     async def calculateATM(self, strike_interval=50):
         ltp = self.LibertyMarketData.fetch_quick_LTP
         if ltp is not None:
@@ -254,14 +258,14 @@ class Nifty_OMS:
         openPosition=[]
         positions = self.fyers.positions()
         for position in positions['netPositions']:
-            print(position)
-            if position['netQty'] == 0:
+            if position['netQty'] > 0:
                 openPosition.append(position)
         self.logger.info(f"exit_position(): Found {len(openPosition)} Open Positions")
         for exitPosition in openPosition:
             symbol = exitPosition['symbol']
             qty = exitPosition['qty']
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+            print(f"Initial Quote: {initial_quote}")
             bid_price = initial_quote['bid']
             max_price = self.round_to_nearest_half(initial_quote['bid'] - (initial_quote['bid'] * 0.1))  # Setting Max Price at 10% of ask price
             limit_price = self.round_to_nearest_half(initial_quote['bid'] - initial_quote['bid'] * 0.01) # Setting Limit Price at 1% of ask price
@@ -270,12 +274,13 @@ class Nifty_OMS:
                 'productType':'INTRADAY',
                 'side': -1,
                 'symbol': symbol,
-                'qty': self.qty,
+                'qty': qty,
                 'type': 1,
                 'validity':'DAY',
                 'limitPrice': limit_price,
                 'orderTag': 'NiftyTF'
             }
+            print(data)
             response = self.fyers.place_order(data)
             print(response)
             if response['s'] == "ok":
