@@ -18,7 +18,12 @@ class Nifty_OMS:
         self.fyers= fyers
         self.LibertyMarketData = LibertyMarketData(db, fyers)
         self.qty = settings.trade.NIFTY_LOT * settings.trade.NIFTY_LOT_SIZE
+        self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
 
+    @staticmethod
+    def round_to_nearest_half(value):
+        return math.ceil(value * 2) / 2
+    
     async def calculateATM(self, strike_interval=50):
         ltp = self.LibertyMarketData.fetch_quick_LTP
         if ltp is not None:
@@ -77,47 +82,65 @@ class Nifty_OMS:
 
     async def place_nifty_order_new(self,side):
         try:
-            symbol = await self.get_symbol(side)
+            #symbol = await self.get_symbol(side)
+            symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
             self.logger.info(f"Placing order for: {symbol}")
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
             ask_price = initial_quote['ask']
-            max_price = round(initial_quote['ask'] * 0.1,2)                           # Setting Max Price at 10% of ask price
-            limit_price = initial_quote['ask'] + round(initial_quote['ask'] * 0.01,2) # Setting Limit Price at 1% of ask price
+            max_price = self.round_to_nearest_half(initial_quote['ask'] + (initial_quote['ask'] * 0.1))  # Setting Max Price at 10% of ask price
+            limit_price = self.round_to_nearest_half(initial_quote['ask'] + initial_quote['ask'] * 0.01) # Setting Limit Price at 1% of ask price
+            limit_price = 9600
             counter = 1
             data={
                 'productType':'INTRADAY',
                 'side': 1,
                 'symbol': symbol,
-                'qty': self.qty,
+                # 'qty': self.qty, # Remove this later
+                'qty': 1,
                 'type': 1,
                 'validity':'DAY',
-                'limitPrice': limit_price
+                'limitPrice': limit_price,
+                'orderTag': 'NiftyTF'
             }
             response = self.fyers.place_order(data)
+            print(response)
             if response['s'] == "ok":
                 order_id = response['id']
+                asyncio.create_task(self.LibertyMarketData.insert_order_data(orderID=order_id))
             else:
                 self.logger.error("place_nifty_order_new(): Failed to Place Order")
-                await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol}")
+                await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol} Response: {response}")
                 return False
             
             self.logger.info(f"Order Placed. Response:{response}\n")
 
-            # Set up asyncio event for order completion
-            order_complete_event = asyncio.Event() 
+            await asyncio.sleep(1)  # Waiting for a second for order to process, maybe will need to increase later
+            placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+            print(f"placed_order_status:{placed_order_status}, {type(placed_order_status)}")
+            if placed_order_status == 2:
+                await slack.send_message(f"place_nifty_order_new(): Order Filled Successfully for {symbol} Response: {response}")
+                return True
+            elif placed_order_status == 0:
+                self.logger.error(f"Order {order_id} processing completed")
+                await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol} Response: {response}")
+                return False
+            else:
+                print("Going for websocket")
+                # Set up asyncio event for order completion
+                order_complete_event = asyncio.Event() 
 
-            # Create and start WebSocket monitoring thread
-            await self._monitor_order_websocket(
-                order_id=order_id,
-                symbol=symbol,
-                initial_ask=ask_price,
-                counter=counter,
-                order_complete_event=order_complete_event
-            )
-            
-            # Wait for order completion
-            await order_complete_event.wait()
-            self.logger.info(f"Order {order_id} processing completed")                      
+                # Create and start WebSocket monitoring thread
+                await self._monitor_order_websocket(
+                    order_id=order_id,
+                    symbol=symbol,
+                    initial_ask=ask_price,
+                    counter=counter,
+                    order_complete_event=order_complete_event
+                )
+                
+                # Wait for order completion
+                await order_complete_event.wait()
+                self.logger.info(f"Order {order_id} processing completed")                      
 
         except Exception as e:
             print(f"Error: {e}")
@@ -215,7 +238,7 @@ class Nifty_OMS:
             
         # Create and connect the WebSocket
         ws = order_ws.FyersOrderSocket(
-            access_token=settings.fyers.FYERS_ACCESS_TOKEN,
+            access_token=self.access_token,
             log_path="",
             write_to_file=False,
             on_connect=on_open,
@@ -225,3 +248,6 @@ class Nifty_OMS:
         )
         
         ws.connect() 
+
+    async def exit_position(self):
+        print("Exit here")

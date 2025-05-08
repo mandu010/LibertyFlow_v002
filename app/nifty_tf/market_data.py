@@ -5,6 +5,7 @@ import builtins
 from app.utils.logging import get_logger
 from datetime import datetime, timedelta
 from app.config import settings
+from app.slack import slack
 
 class LibertyMarketData:
     def __init__(self, db, fyers):
@@ -116,7 +117,8 @@ class LibertyMarketData:
                 self.logger.info(f"fetch_nifty_quote(): Fetched {self.symbol} Quote: LTP:{quote_data.get('lp')} ASK:{quote_data.get('ask')}")
                 return {
                     'lp': quote_data.get('lp'),
-                    'ask': quote_data.get('ask')
+                    'ask': quote_data.get('ask'),
+                    'bid': quote_data.get('bid')
                 }
             else:
                 error_msg = response.get('message', 'Unknown error')
@@ -125,3 +127,36 @@ class LibertyMarketData:
         except Exception as e:
             self.logger.error(f"fetch_nifty_quote(): Exception occurred: {str(e)}")
             return {'lp': None, 'ask': None}                           
+        
+    async def insert_order_data(self, orderID):
+        try:
+            response = self.fyers.get_orders({'id':str(orderID)})
+            if response.get('code') == 200 and len(response['orderBook']) > 0:
+                order = response['orderBook'][0]
+                sql =f'''
+                    INSERT INTO nifty.orders (symbol, qty, "orderID", timestamp, date)
+                    VALUES ('{order['symbol'].split(":")[-1]}','{order['qty']}','{order['id']}','{order['orderDateTime']}',CURRENT_DATE)
+                    '''
+                await self.db.execute_query(sql=sql)
+                await slack.send_message(f"insert_order_data(): Order {order['symbol'].split(":")[-1]} inserted into DB successfully")
+            else:
+                error_msg = "Order Not Placed Probably"
+                self.logger.error(f"insert_order_data(): Order Error: {error_msg}")
+                return 
+        except Exception as e:
+            self.logger.error(f"insert_order_data(): Exception occurred: {str(e)}")
+            return 
+        
+    async def fetch_quick_order_status(self, orderID):
+        try:
+            response = self.fyers.get_orders({'id':str(orderID)})
+            if response.get('code') == 200 and len(response['orderBook']) > 0:
+                order = response['orderBook'][0]
+                return order['status']
+            else:
+                error_msg = "Failed to fetch Order Status"
+                self.logger.error(f"fetch_quick_order_status(): Order Status Fetch Error: {error_msg}")
+                return 0
+        except Exception as e:
+            self.logger.error(f"fetch_quick_order_status(): Exception occurred: {str(e)}")
+            return 0
