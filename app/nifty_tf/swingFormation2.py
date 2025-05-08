@@ -6,6 +6,7 @@ import math
 from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
 from app.nifty_tf.trigger import LibertyTrigger
+from app.slack import slack
 
 class LibertySwing():
     """
@@ -39,8 +40,8 @@ class LibertySwing():
             while True:
                 # Hard stop at 12:25 PM
                 if datetime.now().time() >= time(12, 25): ### Remove this later
-                    print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
-                    self.logger.info("SWH(): Breaced 12.25 PM.")
+                    self.logger.info("SWH(): Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks")
+                    await slack.send_message("SWH(): Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks")
                     return False
 
                 trigger_time = await self.db.fetch_swing_trigger_time(swing="swhTime")
@@ -99,8 +100,8 @@ class LibertySwing():
             while True:
                 # Hard stop at 12:25 PM
                 if datetime.now().time() >= time(12, 25): ### Remove this later
-                    print("Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks.")
-                    self.logger.info("SWL(): Breaced 12.25 PM.")
+                    self.logger.info("SWL(): Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks")
+                    await slack.send_message("SWL(): Reached cutoff time 12:25 PM. Stopping Swing Formation Check checks")
                     return False
                 
                 trigger_time = await self.db.fetch_swing_trigger_time(swing="swlTime")

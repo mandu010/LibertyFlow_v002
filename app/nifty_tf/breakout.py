@@ -5,7 +5,7 @@ from datetime import datetime, time
 from app.utils.logging import get_logger
 from app.config import settings
 from fyers_apiv3.FyersWebsocket import data_ws
-
+from app.slack import slack
 
 class LibertyBreakout:
     def __init__(self, db, fyers):
@@ -77,7 +77,8 @@ class LibertyBreakout:
             daemon=True
         )
         thread.start()
-        self.logger.info("Breakout watcher started")
+        self.logger.info("_watch_for_breakout(): Breakout watcher started")
+        await slack.send_message(f"_watch_for_breakout(): Breakout watcher started")
 
     def _run_ws_thread(self, done_event: asyncio.Event, loop: asyncio.AbstractEventLoop):
         """
@@ -93,6 +94,7 @@ class LibertyBreakout:
             if self.state["triggered"]:
                 return
 
+            # print(ltp)
             # check Buy
             if self.swh_price is not None and ltp > self.swh_price:
                 direction, price = "Buy", ltp

@@ -142,16 +142,18 @@ class LibertyFlow:
                     self.logger.info(f"SWH formed with value: {self.swh_value}, notifying breakout system")
                     
                     asyncio.create_task(slack.send_message("Starting Breakout Monitor for SWH"))
-                    # Start or update breakout monitor with SWH value
-                    await self.breakout.monitor_breakouts(swh_price=self.swh_value)
-                    
                     # Set event to notify other components
-                    self.events["swh_formed"].set()
+                    self.events["swh_formed"].set()                  
+
+                    # Start or update breakout monitor with SWH value
+                    await self.breakout.monitor_breakouts(swh_price=self.swh_value)   
             else:
                 self.logger.info("SWH formation failed or timed out")
+                await slack.send_message("run_swh_formation(): SWH formation failed or timed out")
                 
         except Exception as e:
             self.logger.error(f"Error in SWH formation: {e}", exc_info=True)
+            await slack.send_message(f"run_swh_formation(): Error in SWH formation: {e}")
 
     async def run_swl_formation(self, swing_instance):
         """Run SWL formation and immediately notify breakout when it forms"""
@@ -171,17 +173,18 @@ class LibertyFlow:
                 if self.swl_value:
                     self.logger.info(f"SWL formed with value: {self.swl_value}, notifying breakout system")
                     
+                    # Set event to notify other components
+                    self.events["swl_formed"].set()
                     asyncio.create_task(slack.send_message("Starting Breakout Monitor for SWL"))
                     # Start or update breakout monitor with SWL value
                     await self.breakout.monitor_breakouts(swl_price=self.swl_value)
-                    
-                    # Set event to notify other components
-                    self.events["swl_formed"].set()
             else:
                 self.logger.info("SWL formation failed or timed out")
+                await slack.send_message("run_swl_formation(): SWL formation failed or timed out")
                 
         except Exception as e:
             self.logger.error(f"Error in SWL formation: {e}", exc_info=True)
+            await slack.send_message(f"run_swl_formation(): Error in SWL formation: {e}")
 
     async def monitor_trading_session(self):
             """Monitor the trading session for completion conditions"""

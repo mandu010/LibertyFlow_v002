@@ -2,11 +2,14 @@ import math
 from datetime import datetime
 import pandas as pd
 import asyncio
+import threading
+import time
 
 from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
 from app.config import settings
 from app.slack import slack
+from fyers_apiv3.FyersWebsocket import order_ws
 
 class Nifty_OMS:
     def __init__(self, db, fyers):
@@ -71,3 +74,154 @@ class Nifty_OMS:
         except Exception as e:
             self.logger.error(f"get_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")
             return None
+
+    async def place_nifty_order_new(self,side):
+        try:
+            symbol = await self.get_symbol(side)
+            self.logger.info(f"Placing order for: {symbol}")
+            initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+            ask_price = initial_quote['ask']
+            max_price = round(initial_quote['ask'] * 0.1,2)                           # Setting Max Price at 10% of ask price
+            limit_price = initial_quote['ask'] + round(initial_quote['ask'] * 0.01,2) # Setting Limit Price at 1% of ask price
+            counter = 1
+            data={
+                'productType':'INTRADAY',
+                'side': 1,
+                'symbol': symbol,
+                'qty': self.qty,
+                'type': 1,
+                'validity':'DAY',
+                'limitPrice': limit_price
+            }
+            response = self.fyers.place_order(data)
+            if response['s'] == "ok":
+                order_id = response['id']
+            else:
+                self.logger.error("place_nifty_order_new(): Failed to Place Order")
+                await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol}")
+                return False
+            
+            self.logger.info(f"Order Placed. Response:{response}\n")
+
+            # Set up asyncio event for order completion
+            order_complete_event = asyncio.Event() 
+
+            # Create and start WebSocket monitoring thread
+            await self._monitor_order_websocket(
+                order_id=order_id,
+                symbol=symbol,
+                initial_ask=ask_price,
+                counter=counter,
+                order_complete_event=order_complete_event
+            )
+            
+            # Wait for order completion
+            await order_complete_event.wait()
+            self.logger.info(f"Order {order_id} processing completed")                      
+
+        except Exception as e:
+            print(f"Error: {e}")
+
+    async def _monitor_order_websocket(self, order_id, symbol, initial_ask, counter, order_complete_event):
+        """
+        Monitor order status via WebSocket and modify as needed
+        """
+        loop = asyncio.get_event_loop()
+        
+        # Start the WebSocket in a separate thread
+        thread = threading.Thread(
+            target=self._run_order_monitor_thread,
+            args=(order_id, initial_ask, counter, order_complete_event, loop),
+            daemon=True
+        )
+        thread.start()
+        self.logger.info(f"Order monitor started for order ID: {order_id}")
+
+    def _run_order_monitor_thread(self, order_id, initial_ask, counter, order_complete_event, loop):
+        """
+        Background thread for order monitoring and modification
+        """
+        def on_order(message):
+            nonlocal counter
+            
+            if not isinstance(message, dict) or message.get("s") != "ok" or "orders" not in message:
+                return
+                
+            order_info = message.get("orders", {})
+            
+            # Check if this is our order
+            if order_info.get("id") != order_id:
+                return
+                
+            status = order_info.get("status")
+            self.logger.info(f"Order {order_id} status update: {status}")
+            
+            # If order complete (status 2 in Fyers API), signal completion
+            if status == 2:
+                self.logger.info(f"Order {order_id} completed successfully!")
+                # Signal the asyncio waiter
+                loop.call_soon_threadsafe(order_complete_event.set)
+                try:
+                    ws.unsubscribe(data_type="OnOrders")
+                except Exception as e:
+                    self.logger.error(f"Error unsubscribing: {e}")
+                return
+                
+            # If order not complete, wait 2 seconds and then modify if needed
+            time.sleep(2)
+            
+            if counter < 10:
+                # Increment counter and adjust price
+                counter += 1
+                new_price = initial_ask * (1 + (counter * 0.01))
+                
+                # Modify order with new price
+                modify_data = {
+                    'id': order_id,
+                    'type': 2,  # Limit order
+                    'limitPrice': new_price
+                }
+                
+                try:
+                    modify_response = self.fyers.modify_order(modify_data)
+                    self.logger.info(f"Modified order {order_id} to price {new_price}. Response: {modify_response}")
+                except Exception as e:
+                    self.logger.error(f"Error modifying order: {e}")
+            
+            elif counter == 10:
+                # Convert to market order
+                modify_data = {
+                    'id': order_id,
+                    'type': 1  # Market order
+                }
+                
+                try:
+                    modify_response = self.fyers.modify_order(modify_data)
+                    self.logger.info(f"Converted order {order_id} to market order. Response: {modify_response}")
+                except Exception as e:
+                    self.logger.error(f"Error converting to market order: {e}")
+        
+        def on_error(message):
+            self.logger.error(f"WebSocket error: {message}")
+            loop.call_soon_threadsafe(order_complete_event.set)
+            
+        def on_close(message):
+            self.logger.info(f"WebSocket closed: {message}")
+            
+        def on_open():
+            self.logger.info(f"WebSocket connected, subscribing to orders for {order_id}")
+            ws.subscribe(data_type="OnOrders")
+            ws.keep_running()
+            
+        # Create and connect the WebSocket
+        ws = order_ws.FyersOrderSocket(
+            access_token=settings.fyers.FYERS_ACCESS_TOKEN,
+            log_path="",
+            write_to_file=False,
+            on_connect=on_open,
+            on_orders=on_order,
+            on_error=on_error,
+            on_close=on_close
+        )
+        
+        ws.connect() 

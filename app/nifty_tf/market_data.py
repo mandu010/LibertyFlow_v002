@@ -106,4 +106,22 @@ class LibertyMarketData:
                 return float(min1_data_df.iloc[-1]['close'])
         except Exception as e:
             self.logger.error(f"fetch_quick_LTP(): Error fetching last LTP: {e}", exc_info=True)
-            return None                   
+            return None
+        
+    async def fetch_quick_quote(self, symbol):
+        try:
+            response = self.fyers.quotes(data={"symbols": symbol})
+            if response.get('code') == 200 and response.get('d') and len(response['d']) > 0:
+                quote_data = response['d'][0].get('v', {})
+                self.logger.info(f"fetch_nifty_quote(): Fetched {self.symbol} Quote: LTP:{quote_data.get('lp')} ASK:{quote_data.get('ask')}")
+                return {
+                    'lp': quote_data.get('lp'),
+                    'ask': quote_data.get('ask')
+                }
+            else:
+                error_msg = response.get('message', 'Unknown error')
+                self.logger.error(f"fetch_nifty_quote(): API Error: {error_msg}")
+                return {'lp': None, 'ask': None}
+        except Exception as e:
+            self.logger.error(f"fetch_nifty_quote(): Exception occurred: {str(e)}")
+            return {'lp': None, 'ask': None}                           
