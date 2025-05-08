@@ -250,7 +250,6 @@ class Nifty_OMS:
             on_error=on_error,
             on_close=on_close
         )
-        
         ws.connect() 
 
     async def exit_position(self):
@@ -299,4 +298,5 @@ class Nifty_OMS:
             if placed_order_status == 2:
                 await slack.send_message(f"exit_position(): Exited Successfully for {symbol} Response: {response}")
                 return True
-
+        if len(openPosition) == 0:
+            await slack.send_message(f"exit_position(): No Open Positions to Exit")
