@@ -19,6 +19,7 @@ class Nifty_OMS:
         self.LibertyMarketData = LibertyMarketData(db, fyers)
         self.qty = settings.trade.NIFTY_LOT * settings.trade.NIFTY_LOT_SIZE
         self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
+        self.nifty_symbol = settings.trade.NIFTY_SYMBOL
 
     @staticmethod
     def round_to_nearest_half(value):
@@ -54,9 +55,12 @@ class Nifty_OMS:
     
     async def get_symbol(self,side,strike_interval=50):
         try:
-            ltp = await self.LibertyMarketData.fetch_quick_LTP()
+            # ltp = await self.LibertyMarketData.fetch_quick_LTP()
+            ltp = await self.LibertyMarketData.fetch_quick_quote(self.nifty_symbol)
+            ltp = ltp['lp']
             print(f"ltp:{ltp}",type(ltp))
             self.logger.info(f"get_symbol(): LTP: {ltp}")
+            print(ltp)            
             if ltp is not None:
                 ATM =  round(ltp/strike_interval)*strike_interval
                 ### Stepping 1 Down in ATM strike
@@ -86,21 +90,21 @@ class Nifty_OMS:
 
     async def place_nifty_order_new(self,side):
         try:
-            #symbol = await self.get_symbol(side)
-            symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
+            symbol = await self.get_symbol(side)
+            # symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
             self.logger.info(f"Placing order for: {symbol}")
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
             ask_price = initial_quote['ask']
             max_price = self.round_to_nearest_half(initial_quote['ask'] + (initial_quote['ask'] * 0.1))  # Setting Max Price at 10% of ask price
             limit_price = self.round_to_nearest_half(initial_quote['ask'] + initial_quote['ask'] * 0.01) # Setting Limit Price at 1% of ask price
-            limit_price = 9600
+            # limit_price = 9600
             counter = 1
             data={
                 'productType':'INTRADAY',
                 'side': 1,
                 'symbol': symbol,
-                # 'qty': self.qty, # Remove this later
-                'qty': 1,
+                'qty': self.qty,
+                # 'qty': 1,
                 'type': 1,
                 'validity':'DAY',
                 'limitPrice': limit_price,
@@ -128,23 +132,23 @@ class Nifty_OMS:
                 self.logger.error(f"Order {order_id} processing completed")
                 await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol} Response: {response}")
                 return False
-            else:
-                print("Going for websocket")
-                # Set up asyncio event for order completion
-                order_complete_event = asyncio.Event() 
+            # else:
+            #     print("Going for websocket")
+            #     # Set up asyncio event for order completion
+            #     order_complete_event = asyncio.Event() 
 
-                # Create and start WebSocket monitoring thread
-                await self._monitor_order_websocket(
-                    order_id=order_id,
-                    symbol=symbol,
-                    initial_ask=ask_price,
-                    counter=counter,
-                    order_complete_event=order_complete_event
-                )
+            #     # Create and start WebSocket monitoring thread
+            #     await self._monitor_order_websocket(
+            #         order_id=order_id,
+            #         symbol=symbol,
+            #         initial_ask=ask_price,
+            #         counter=counter,
+            #         order_complete_event=order_complete_event
+            #     )
                 
-                # Wait for order completion
-                await order_complete_event.wait()
-                self.logger.info(f"Order {order_id} processing completed")                      
+            #     # Wait for order completion
+            #     await order_complete_event.wait()
+            #     self.logger.info(f"Order {order_id} processing completed")                      
 
         except Exception as e:
             print(f"Error: {e}")
