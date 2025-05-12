@@ -265,13 +265,14 @@ class Nifty_OMS:
                 openPosition.append(position)
         self.logger.info(f"exit_position(): Found {len(openPosition)} Open Positions")
         for exitPosition in openPosition:
+            print(exitPosition)
             symbol = exitPosition['symbol']
             qty = exitPosition['qty']
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
             print(f"Initial Quote: {initial_quote}")
             bid_price = initial_quote['bid']
-            max_price = self.round_to_nearest_half(initial_quote['bid'] - (initial_quote['bid'] * 0.1))  # Setting Max Price at 10% of ask price
-            limit_price = self.round_to_nearest_half(initial_quote['bid'] - initial_quote['bid'] * 0.01) # Setting Limit Price at 1% of ask price
+            max_price = self.round_to_nearest_half(bid_price - bid_price * 0.1)  # Setting Max Price at 10% of ask price
+            limit_price = self.round_to_nearest_half(bid_price - bid_price * 0.01) # Setting Limit Price at 1% of ask price
             counter = 1
             data={
                 'productType':'INTRADAY',
@@ -283,7 +284,7 @@ class Nifty_OMS:
                 'limitPrice': limit_price,
                 'orderTag': 'NiftyTF'
             }
-            print(data)
+            self.logger.info(f"Data sending to fyers: {data}")
             response = self.fyers.place_order(data)
             print(response)
             if response['s'] == "ok":
