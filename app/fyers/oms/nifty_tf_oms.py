@@ -20,6 +20,13 @@ class Nifty_OMS:
         self.qty = settings.trade.NIFTY_LOT * settings.trade.NIFTY_LOT_SIZE
         self.access_token = settings.fyers.FYERS_ACCESS_TOKEN
         self.nifty_symbol = settings.trade.NIFTY_SYMBOL
+        self.nifty_product_type = settings.trade.NIFTY_PRODUCT_TYPE
+        self.max_price_pct = 0.05
+        self.limit_price_pct = 0.005
+        self.buy_side = settings.trade.BUY_TYPE
+        self.sell_side = settings.trade.SELL_TYPE
+        self.limit_type = settings.trade.LIMIT_TYPE
+        self.market_type = settings.trade.MARKET_TYPE
 
     @staticmethod
     def round_to_nearest_half(value):
@@ -41,8 +48,8 @@ class Nifty_OMS:
             symbol = await self.get_symbol(side)
             self.logger.info(f"Placing order for: {symbol}")
             data={
-                'productType':'INTRADAY',
-                'side': 1,
+                'productType':self.nifty_product_type,
+                'side': self.buy_side,
                 'symbol': symbol,
                 'qty': self.qty,
                 'type': 2,
@@ -88,24 +95,21 @@ class Nifty_OMS:
             self.logger.error(f"get_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")
             return None
 
-    async def place_nifty_order_new(self,side):
+    async def place_nifty_order_new(self,side) -> str:
         try:
             symbol = await self.get_symbol(side)
             # symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
             self.logger.info(f"Placing order for: {symbol}")
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
             ask_price = initial_quote['ask']
-            max_price = self.round_to_nearest_half(initial_quote['ask'] + (initial_quote['ask'] * 0.1))  # Setting Max Price at 10% of ask price
-            limit_price = self.round_to_nearest_half(initial_quote['ask'] + initial_quote['ask'] * 0.01) # Setting Limit Price at 1% of ask price
-            # limit_price = 9600
+            limit_price = self.round_to_nearest_half(ask_price + ask_price * self.limit_price_pct) # Setting Limit Price at 1% of ask price
             counter = 1
             data={
-                'productType':'INTRADAY',
-                'side': 1,
+                'productType':self.nifty_product_type,
+                'side': self.buy_side,
                 'symbol': symbol,
                 'qty': self.qty,
-                # 'qty': 1,
-                'type': 1,
+                'type': self.limit_type,
                 'validity':'DAY',
                 'limitPrice': limit_price,
                 'orderTag': 'NiftyTF'
@@ -122,36 +126,49 @@ class Nifty_OMS:
             
             self.logger.info(f"Order Placed. Response:{response}\n")
 
-            await asyncio.sleep(1)  # Waiting for a second for order to process, maybe will need to increase later
+            await asyncio.sleep(3.5)  # Waiting for a second for order to process, maybe will need to increase later
             placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
             print(f"placed_order_status:{placed_order_status}, {type(placed_order_status)}")
             if placed_order_status == 2:
                 await slack.send_message(f"place_nifty_order_new(): Order Filled Successfully for {symbol} Response: {response}")
-                return True
-            elif placed_order_status == 0:
-                self.logger.error(f"Order {order_id} processing completed")
-                await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol} Response: {response}")
-                return False
-            # else:
-            #     print("Going for websocket")
-            #     # Set up asyncio event for order completion
-            #     order_complete_event = asyncio.Event() 
-
-            #     # Create and start WebSocket monitoring thread
-            #     await self._monitor_order_websocket(
-            #         order_id=order_id,
-            #         symbol=symbol,
-            #         initial_ask=ask_price,
-            #         counter=counter,
-            #         order_complete_event=order_complete_event
-            #     )
-                
-            #     # Wait for order completion
-            #     await order_complete_event.wait()
-            #     self.logger.info(f"Order {order_id} processing completed")                      
+                return symbol
+            else:
+                while counter < 6:
+                    counter += 1
+                    placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)                         
+                    if placed_order_status == 2:
+                        await slack.send_message(f"place_nifty_order_new(): Order Filled Successfully for {symbol}")
+                        return True
+                    fresh_quote = await self.LibertyMarketData.fetch_quick_quote(symbol) ### Getting new quote
+                    ask_price = fresh_quote['ask']                                        
+                    limit_price = self.round_to_nearest_half(ask_price + ask_price * (self.limit_price_pct * counter))
+                    data = {
+                            "id":order_id, 
+                            "type":self.limit_type, 
+                            "limitPrice": limit_price
+                        }
+                    self.fyers.modify_order(data=data) ### Not Error Checking here
+                    await asyncio.sleep(5)
+                # Going for Market Order
+                self.logger.info("place_nifty_order_new(): Going for Market Order")
+                data = {
+                        "id":order_id, 
+                        "type":self.market_type # <- Market Order
+                    }  
+                self.fyers.modify_order(data=data) ### Not Error Checking here
+                await asyncio.sleep(2)
+                placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                if placed_order_status == 2:
+                    await slack.send_message(f"place_nifty_order_new(): Exited At Market Price Successfully for {symbol}.")
+                    return True                     
+                else:
+                    self.logger.error("place_nifty_order_new(): Failed to Place Order")
+                    await slack.send_message(f"place_nifty_order_new(): Failed to Place Order at Market \n Place order manually for {symbol}")
+                    return False                
 
         except Exception as e:
             print(f"Error: {e}")
+            self.logger.error(f"place_nifty_order_new(): {e}")
 
     async def _monitor_order_websocket(self, order_id, symbol, initial_ask, counter, order_complete_event):
         """
@@ -209,7 +226,7 @@ class Nifty_OMS:
                 # Modify order with new price
                 modify_data = {
                     'id': order_id,
-                    'type': 2,  # Limit order
+                    'type': self.limit_type,  # Market order
                     'limitPrice': new_price
                 }
                 
@@ -223,7 +240,7 @@ class Nifty_OMS:
                 # Convert to market order
                 modify_data = {
                     'id': order_id,
-                    'type': 1  # Market order
+                    'type': self.market_type  # Market order
                 }
                 
                 try:
@@ -257,51 +274,155 @@ class Nifty_OMS:
         ws.connect() 
 
     async def exit_position(self):
-        self.logger.info(f"exit_position(): Starting to Exit Postions")
-        openPosition=[]
-        positions = self.fyers.positions()
-        for position in positions['netPositions']:
-            if position['netQty'] > 0:
-                openPosition.append(position)
-        self.logger.info(f"exit_position(): Found {len(openPosition)} Open Positions")
-        for exitPosition in openPosition:
-            print(exitPosition)
-            symbol = exitPosition['symbol']
-            qty = exitPosition['qty']
+        try:
+            self.logger.info(f"exit_position(): Starting to Exit Postions")
+            openPositions=[]
+            positions = self.fyers.positions()
+            for position in positions['netPositions']:
+                if position['netQty'] > 0 and position['productType'] == self.nifty_product_type:
+                    openPositions.append(position)
+            self.logger.info(f"exit_position(): Found {len(openPositions)} Open Positions")
+            for exitPosition in openPositions:
+                print(exitPosition)
+                symbol = exitPosition['symbol']
+                qty = exitPosition['qty']
+                initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+                print(f"Initial Quote: {initial_quote}")
+                bid_price = initial_quote['bid']
+                limit_price = self.round_to_nearest_half(bid_price - bid_price * self.limit_price_pct) # Setting Limit Price at 0.5% of ask price
+                counter = 1
+                data={
+                    'productType':self.nifty_product_type,
+                    'side': self.sell_side,
+                    'symbol': symbol,
+                    'qty': qty,
+                    'type': self.limit_type,
+                    'validity':'DAY',
+                    'limitPrice': limit_price,
+                    'orderTag': 'NiftyTF'
+                }
+                self.logger.info(f"Data sending to fyers: {data}")
+                response = self.fyers.place_order(data)
+                print(response)
+                if response['s'] == "ok":
+                    order_id = response['id']
+                else:
+                    self.logger.error("exit_position(): Failed to Place Exit Order")
+                    await slack.send_message(f"exit_position(): Failed to Place Exit Order \n Exit manually for {symbol} Response: {response}")
+                    #return False
+                    continue ### Going to next position
+                
+                self.logger.info(f"Exit Order Placed. Response:{response}\n")
+
+                await asyncio.sleep(1.5)  # Waiting for a second for order to process, maybe will need to increase later
+                placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                print(f"exit_position():{placed_order_status}, {type(placed_order_status)}")
+                if placed_order_status == 2:
+                    await slack.send_message(f"exit_position(): Exited Successfully for {symbol} Response: {response}")
+                    return True
+                else:
+                    while counter < 6:
+                        counter += 1
+                        placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                        if placed_order_status == 2:
+                            await slack.send_message(f"exit_position(): Exited Successfully for {symbol}.")
+                            return True                     
+                        fresh_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+                        print(f"Fresh Quote: {fresh_quote}")
+                        bid_price = fresh_quote['bid']            
+                        limit_price = self.round_to_nearest_half(bid_price - bid_price * (self.limit_price_pct * counter)) ### Exponential Backoff
+                        data = {
+                                "id":order_id, 
+                                "type":self.limit_type, 
+                                "limitPrice": limit_price
+                            }
+                        self.fyers.modify_order(data=data) ### Not Error Checking here
+                        await asyncio.sleep(5)
+                    # Going for Market Order
+                    data = {
+                            "id":order_id, 
+                            "type":self.market_type # <- Market Order
+                        }  
+                    self.fyers.modify_order(data=data) ### Not Error Checking here
+                    await asyncio.sleep(2)
+                    placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                    if placed_order_status == 2:
+                        await slack.send_message(f"exit_position(): Exited At Market Price Successfully for {symbol}.")
+                        return True            
+            if len(openPositions) == 0:
+                await slack.send_message(f"exit_position(): No Open Positions to Exit")
+        except Exception as e:
+            print(f"Error: {e}")
+            self.logger.error(f"exit_position(): {e}")                
+
+    async def exit_single_position(self,symbol):
+        try:
+            self.logger.info(f"exit_single_position(): Starting to Exit ")
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
             print(f"Initial Quote: {initial_quote}")
             bid_price = initial_quote['bid']
-            max_price = self.round_to_nearest_half(bid_price - bid_price * 0.1)  # Setting Max Price at 10% of ask price
-            limit_price = self.round_to_nearest_half(bid_price - bid_price * 0.01) # Setting Limit Price at 1% of ask price
+            limit_price = self.round_to_nearest_half(bid_price - bid_price * self.limit_price_pct) # Setting Limit Price at 0.5% of bid price
             counter = 1
             data={
-                'productType':'INTRADAY',
-                'side': -1,
+                'productType':self.nifty_product_type,
+                'side': self.sell_side,
                 'symbol': symbol,
-                'qty': qty,
-                'type': 1,
+                'qty': self.qty,
+                'type': self.limit_type,
                 'validity':'DAY',
                 'limitPrice': limit_price,
                 'orderTag': 'NiftyTF'
             }
-            self.logger.info(f"Data sending to fyers: {data}")
-            response = self.fyers.place_order(data)
+            self.logger.info(f"exit_single_position(): Data sending to fyers: {data}")
+            response = self.fyers.place_order(data) ### Placing Order here
             print(response)
             if response['s'] == "ok":
                 order_id = response['id']
-                # asyncio.create_task(self.LibertyMarketData.insert_order_data(orderID=order_id))
             else:
-                self.logger.error("exit_position(): Failed to Place Exit Order")
-                await slack.send_message(f"exit_position(): Failed to Place Exit Order \n Exit manually for {symbol} Response: {response}")
+                self.logger.error("exit_single_position(): Failed to Place Exit Order")
+                await slack.send_message(f"exit_single_position(): Failed to Place Exit Order \n Exit manually for {symbol} Response: {response}")
                 return False
-            
-            self.logger.info(f"Exit Order Placed. Response:{response}\n")
+                
+            self.logger.info(f"exit_single_position(): Exit Order Placed. Response:{response}\n")
+            await asyncio.sleep(3.5)  # Waiting for a second for order to process, maybe will need to increase later
 
-            await asyncio.sleep(1)  # Waiting for a second for order to process, maybe will need to increase later
+
             placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
-            print(f"exit_position():{placed_order_status}, {type(placed_order_status)}")
+            print(f"exit_single_position():{placed_order_status}, {type(placed_order_status)}")
+
+
             if placed_order_status == 2:
-                await slack.send_message(f"exit_position(): Exited Successfully for {symbol} Response: {response}")
+                await slack.send_message(f"exit_single_position(): Exited Successfully for {symbol} Response: {response}")
                 return True
-        if len(openPosition) == 0:
-            await slack.send_message(f"exit_position(): No Open Positions to Exit")
+            else:
+                while counter < 6:
+                    counter += 1
+                    placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                    if placed_order_status == 2:
+                        await slack.send_message(f"exit_single_position(): Exited Successfully for {symbol}.")
+                        return True                     
+                    fresh_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+                    print(f"Fresh Quote: {fresh_quote}")
+                    bid_price = fresh_quote['bid']            
+                    limit_price = self.round_to_nearest_half(bid_price - bid_price * (self.limit_price_pct * counter)) ### Exponential Backoff
+                    data = {
+                            "id":order_id, 
+                            "type":self.limit_type, 
+                            "limitPrice": limit_price
+                        }
+                    self.fyers.modify_order(data=data) ### Not Error Checking here
+                    await asyncio.sleep(5)
+                # Going for Market Order
+                data = {
+                        "id":order_id, 
+                        "type":self.market_type # <- Market Order
+                    }  
+                self.fyers.modify_order(data=data) ### Not Error Checking here
+                await asyncio.sleep(2)
+                placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                if placed_order_status == 2:
+                    await slack.send_message(f"exit_single_position(): Exited At Market Price Successfully for {symbol}.")
+                    return True     
+        except Exception as e:
+            print(f"Error: {e}")
+            self.logger.error(f"exit_position(): {e}")                          
