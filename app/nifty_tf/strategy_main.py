@@ -113,12 +113,12 @@ class LibertyFlow:
                 self.logger.info("direction: Buy")
                 asyncio.create_task(slack.send_message("Order Placed: Long"))
                 # await self.place_order.place_nifty_order(side="Buy")
-                await self.place_order.place_nifty_order_new(side="Buy")
+                symbol = await self.place_order.place_nifty_order_new(side="Buy")
             else:
                 self.logger.info("direction: Sell")
                 asyncio.create_task(slack.send_message("Order Placed: Short"))
                 # await self.place_order.place_nifty_order(side="Sell")
-                await self.place_order.place_nifty_order_new(side="Sell")
+                symbol = await self.place_order.place_nifty_order_new(side="Sell")
 
             await self.db.close()   
             return True                   

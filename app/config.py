@@ -46,6 +46,11 @@ class TradeSettings(BaseSettings):
     NIFTY_LOT: int = int(os.getenv("NIFTY_LOT"))
     NIFTY_LOT_SIZE: int = int(os.getenv("NIFTY_LOT_SIZE"))
     NIFTY_SYMBOL: str = os.getenv("NIFTY_SYMBOL")
+    NIFTY_PRODUCT_TYPE: str = os.getenv("NIFTY_PRODUCT_TYPE")
+    BUY_TYPE: int = int(os.getenv("BUY_TYPE"))
+    SELL_TYPE: int = int(os.getenv("SELL_TYPE"))
+    LIMIT_TYPE: int = int(os.getenv("LIMIT_TYPE"))
+    MARKET_TYPE: int = int(os.getenv("MARKET_TYPE"))
 
     model_config = {
         "extra": "ignore"

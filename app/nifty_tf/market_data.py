@@ -135,10 +135,10 @@ class LibertyMarketData:
                 order = response['orderBook'][0]
                 sql =f'''
                     INSERT INTO nifty.orders (symbol, qty, "orderID", timestamp, date)
-                    VALUES ('{order['symbol'].split(":")[-1]}','{order['qty']}','{order['id']}','{order['orderDateTime']}',CURRENT_DATE)
+                    VALUES ('{order['description'].split(":")[-1]}','{order['qty']}','{order['id']}','{order['orderDateTime']}',CURRENT_DATE)
                     '''
                 await self.db.execute_query(sql=sql)
-                await slack.send_message(f"insert_order_data(): Order {order['symbol'].split(":")[-1]} inserted into DB successfully")
+                await slack.send_message(f"insert_order_data(): Order {order['description'].split(":")[-1]} inserted into DB successfully")
             else:
                 error_msg = "Order Not Placed Probably"
                 self.logger.error(f"insert_order_data(): Order Error: {error_msg}")
