@@ -24,7 +24,7 @@ class LibertyRange:
         self.db= db
         self.fyers= fyers
         self.symbol = settings.trade.NIFTY_SYMBOL
-        self.range_pct = 0.0001 #0.1 %
+        self.range_pct = 0.001 #0.1 %
 
     async def read_range(self):
         try:

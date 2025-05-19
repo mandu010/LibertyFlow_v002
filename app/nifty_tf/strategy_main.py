@@ -119,6 +119,14 @@ class LibertyFlow:
                 asyncio.create_task(slack.send_message("Order Placed: Short"))
                 # await self.place_order.place_nifty_order(side="Sell")
                 symbol = await self.place_order.place_nifty_order_new(side="Sell")
+                if len(symbol) > 0:
+                    symbol = symbol[0]
+                    order_id = symbol[1]
+            
+            ### Calling SL Method in BG
+            # asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction)) 
+            await self.breakout.sl(symbol=symbol[0], side=direction) 
+            self.logger.info(f"Called SL Method in BG for symbol: {symbol} and side: {direction}")
 
             await self.db.close()   
             return True                   

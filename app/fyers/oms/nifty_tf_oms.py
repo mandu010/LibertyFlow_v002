@@ -96,6 +96,7 @@ class Nifty_OMS:
             return None
 
     async def place_nifty_order_new(self,side) -> str:
+        # This returns symbol and order date time, both in string
         try:
             symbol = await self.get_symbol(side)
             # symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
@@ -131,14 +132,14 @@ class Nifty_OMS:
             print(f"placed_order_status:{placed_order_status}, {type(placed_order_status)}")
             if placed_order_status == 2:
                 await slack.send_message(f"place_nifty_order_new(): Order Filled Successfully for {symbol} Response: {response}")
-                return symbol
+                return symbol,order_id
             else:
                 while counter < 6:
                     counter += 1
                     placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)                         
                     if placed_order_status == 2:
                         await slack.send_message(f"place_nifty_order_new(): Order Filled Successfully for {symbol}")
-                        return True
+                        return symbol,order_id
                     fresh_quote = await self.LibertyMarketData.fetch_quick_quote(symbol) ### Getting new quote
                     ask_price = fresh_quote['ask']                                        
                     limit_price = self.round_to_nearest_half(ask_price + ask_price * (self.limit_price_pct * counter))
@@ -160,7 +161,7 @@ class Nifty_OMS:
                 placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
                 if placed_order_status == 2:
                     await slack.send_message(f"place_nifty_order_new(): Exited At Market Price Successfully for {symbol}.")
-                    return True                     
+                    return symbol,order_id                     
                 else:
                     self.logger.error("place_nifty_order_new(): Failed to Place Order")
                     await slack.send_message(f"place_nifty_order_new(): Failed to Place Order at Market \n Place order manually for {symbol}")

@@ -26,7 +26,7 @@ class LibertyBreakout:
             "price": None
         }
 
-        # internal control
+        # Internal control
         self._monitor_started = False
         self._done_event: asyncio.Event = None
 
@@ -36,11 +36,13 @@ class LibertyBreakout:
 
         # Trail & SL Settings
         self.sl_percent = settings.trade.NIFTY_SL_PCT # 0.3 %
-        self.position = {
+        self.sl_lock = threading.Lock()
+        self.sl_state = {
             "active": False,
             "side": None,
-            "entry_price": None,
-            "sl_price": None
+            "symbol": None,
+            "sl_price": 0,
+            "exit_executed": False
         }
 
         # OMS
@@ -156,55 +158,57 @@ class LibertyBreakout:
         )
         ws.connect()  # blocks until closed
 
-    async def sl(self, side, entry_price):
-        self.logger.info(f"Starting SL monitor for {side} position at entry price {entry_price}")
-        await slack.send_message(f"Starting SL monitor for {side} position at entry price {entry_price}")
+    async def sl(self, side, symbol):
+        try:
+            if side == "Buy":
+                entry_price = await self.db.fetch_swing_price(swing="swhPrice")
+                if entry_price is None:
+                    raise Exception("swhPrice not found in database")
+                sl_price = round(entry_price - (entry_price * self.sl_percent))            
+            else:  # Sell
+                entry_price = await self.db.fetch_swing_price(swing="swlPrice")
+                if entry_price is None:
+                    raise Exception("swlPrice not found in database")
+                sl_price = round(entry_price + (entry_price * self.sl_percent))
+                self.logger.info(f"SL price set at {sl_price} for Sell position")
 
-        if side == "Buy":
-            sl_price = round(entry_price - (entry_price * self.sl_percent))
-            self.logger.info(f"SL price set at {sl_price} for Buy position")
-        else:  # Sell
-            sl_price = round(entry_price + (entry_price * self.sl_percent))
-            self.logger.info(f"SL price set at {sl_price} for Sell position")
-        
-        self.position = {
+            self.logger.info(f"Starting SL monitor for {side} position at entry price {entry_price}")
+            await slack.send_message(f"Starting SL monitor for {side} position at entry price {entry_price}")
+            
+            # Update state with lock for thread safety
+            with self.sl_lock:
+                self.sl_state = {
                     "active": True,
                     "side": side,
-                    "entry_price": entry_price,
-                    "sl_price": sl_price
+                    "symbol": symbol,
+                    "sl_price": sl_price,
+                    "exit_executed": False
                 }
 
-        self._sl_hit_event = asyncio.Event()        
-
-        loop = asyncio.get_event_loop()
-        thread = threading.Thread(
-            target=self._run_sl_ws_thread,
-            args=(side, sl_price, self._sl_hit_event, loop),
-            daemon=True
-        )
-        thread.start()
-        self.logger.info(f"SL watcher started for {side} position")
-        
-        # Wait for the SL process to complete
-        await self._sl_hit_event.wait()
-        self.logger.info("SL monitoring completed")
-        
-        return True
-    def _run_sl_ws_thread(self, side, sl_price, symbol, sl_hit_event, loop):
-        """
-        Background thread: subscribes to SymbolUpdate and
-        executes stop loss IMMEDIATELY when threshold is crossed.
-        """
-        # Flag to ensure we only exit once
-        exit_executed = False
-        
-        def on_message(msg):
-            nonlocal exit_executed
+            # Start WebSocket in separate thread
+            ws_thread = threading.Thread(
+                target=self._start_sl_websocket,
+                daemon=True
+            )
+            print(side, symbol, entry_price, sl_price,self.sl_lock)
+            ws_thread.start()
             
-            # Skip if we've already executed the exit
-            if exit_executed:
-                return
-                
+            self.logger.info(f"SL websocket started in background thread")
+
+            #The below is a place holder until Trailing is implemented, later in Strategy main we will 
+            # await breakout.trailing_sl().done()
+            while datetime.now().time() < time(15, 0):
+                print(side, symbol, entry_price, sl_price,self.sl_lock)
+                await asyncio.sleep(3600)
+            return True
+        except Exception as e:
+            self.logger.error(f"sl(): Error in SL: {e}")
+            await slack.send_message(f"sl(): Error in SL: {e}")
+            return False
+    
+    def _start_sl_websocket(self):
+        def on_message(msg):
+            # Skip if not relevant message
             if not isinstance(msg, dict) or msg.get("type") != "sf":
                 return
 
@@ -212,54 +216,31 @@ class LibertyBreakout:
             if ltp is None:
                 return
                 
-            # Check if SL is hit and execute immediately
-            if (side == "Buy" and ltp < sl_price) or (side == "Sell" and ltp > sl_price):
-                # Set flag immediately to prevent multiple executions
-                exit_executed = True
-                
-                # Log the SL hit
-                if side == "Buy":
-                    self.logger.info(f"SL hit for Buy position. LTP: {ltp}, SL: {sl_price}")
-                else:
-                    self.logger.info(f"SL hit for Sell position. LTP: {ltp}, SL: {sl_price}")
-                
-                try:
-                    # CRITICAL: Call exit_single_position directly with the symbol
-                    # This is the simplest and fastest approach as requested
-                    response = self.place_order.exit_single_position(symbol)
+            # Thread-safe access to SL state
+            with self.sl_lock:
+                # Skip if not active or already exited
+                if not self.sl_state["active"] or self.sl_state["exit_executed"]:
+                    return
                     
-                    # Log the exit
-                    self.logger.info(f"SL Exit executed for {symbol}: {response}")
-                    
-                    # Unsubscribe from WebSocket
-                    ws.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
-                    
-                    # Update DB via a task in the main event loop
-                    loop.call_soon_threadsafe(
-                        lambda: asyncio.create_task(
-                            self.db.update_status(status=f'Exited - SL_HIT')
-                        )
-                    )
-                    
-                    # Signal the asyncio waiter that we're done
-                    loop.call_soon_threadsafe(sl_hit_event.set)
-                    
-                except Exception as e:
-                    self.logger.error(f"Error executing SL exit: {e}", exc_info=True)
-                    loop.call_soon_threadsafe(sl_hit_event.set)
-
+                side = self.sl_state["side"]
+                sl_price = self.sl_state["sl_price"]
+                symbol = self.sl_state["symbol"]
+                if (side == "Buy" and ltp <= sl_price) or (side == "Sell" and ltp >= sl_price):
+                    self.logger.info(f"SL hit for position. LTP: {ltp}, SL: {sl_price}")
+                    asyncio.run(self.place_order.exit_single_position(symbol=symbol))
+        
         def on_error(err):
             self.logger.error(f"SL WebSocket error: {err}")
-            loop.call_soon_threadsafe(sl_hit_event.set)
-
+        
         def on_close(msg):
             self.logger.info("SL WebSocket closed")
-
+        
         def on_connect():
             self.logger.info(f"SL WebSocket connected—subscribing {self.futures_symbol}")
             ws.subscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
             ws.keep_running()
-
+        
+        # Create and connect WebSocket
         ws = data_ws.FyersDataSocket(
             access_token=self.access_token,
             log_path="",
@@ -270,5 +251,24 @@ class LibertyBreakout:
             on_message=on_message,
             on_error=on_error,
             on_close=on_close,
-        )
-        ws.connect()  # blocks until closed    
+            reconnect_retry=10
+        )        
+        ws.connect()
+
+    def update_sl_price(self, new_sl_price):        
+        with self.sl_lock:
+            self.sl_state["sl_price"] = new_sl_price
+        self.logger.info(f"Updated SL price to {new_sl_price}")
+
+
+    async def trail_sl(self,side, symbol):        
+        try:
+            self.logger.info(f"trail_sl(): Starting SL monitor for {side} position")
+            await slack.send_message(f"trail_sl(): Starting SL monitor for {side} position")
+
+            
+            
+        except Exception as e:
+            self.logger.error(f"trail_sl(): Error in SL: {e}")
+            await slack.send_message(f"trail_sl(): Error in SL: {e}")
+            return False

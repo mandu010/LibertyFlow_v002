@@ -119,6 +119,46 @@ class LibertyDB:
                 else:
                     return None
         except Exception as e:
-            self.logger.error(f"Error Fetching Trigger Time: {e}")
+            self.logger.error(f"Error Fetching Trigger Time: {e}")            
+            return None
+        
+    async def fetch_swing_price(self,swing):
+        try:
+            sql = f'''
+                    SELECT "{swing}" FROM nifty.trigger_status
+                    where date = CURRENT_DATE
+                    order by ctid DESC
+                    limit 1                
+                '''                 
+            # Executing the SQL query 
+            async with self.pool.acquire() as connection:
+                result = await connection.fetch(sql)
+                if result is not None:
+                    return float(result[0][swing])
+                else:
+                    return None
+        except Exception as e:
+            self.logger.error(f"Error Fetching Swing Price: {e}")
+            return None
+        
+    async def fetch_orderID(self,symbol):
+        try:
+            sql = f'''
+                    SELECT "{symbol}" FROM nifty.orders
+                    where date = CURRENT_DATE
+                    order by ctid DESC
+                    limit 1                
+                '''                 
+            # Executing the SQL query 
+            async with self.pool.acquire() as connection:
+                result = await connection.fetch(sql)
+                if result is not None:
+                    return str(result[0][symbol])
+                else:
+                    return None
+        except Exception as e:
+            self.logger.error(f"Error Fetching Swing Price: {e}")
+            return None
+
 
 db = LibertyDB()
