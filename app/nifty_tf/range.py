@@ -24,6 +24,7 @@ class LibertyRange:
         self.db= db
         self.fyers= fyers
         self.symbol = settings.trade.NIFTY_SYMBOL
+        self.range_pct = 0.0001 #0.1 %
 
     async def read_range(self):
         try:
@@ -70,8 +71,8 @@ class LibertyRange:
                 value = None
                 
                 # Within Range
-                if (df.iloc[0]['close'] < (range['high'] + range['high']*0.001) and 
-                    df.iloc[0]['close'] > (range['low'] - range['low']*0.001)):
+                if (df.iloc[0]['close'] < (range['high'] + range['high']*self.range_pct) and 
+                    df.iloc[0]['close'] > (range['low'] - range['low']*self.range_pct)):
                     self.logger.info(f"update_range(): Today's candle is within the range")
                     await slack.send_message("Closed Within Range Today")
                     value = {
@@ -82,7 +83,7 @@ class LibertyRange:
                             }
                     
                 # Above Range
-                elif (df.iloc[0]['close'] > (range['high'] + range['high']*0.001)):
+                elif (df.iloc[0]['close'] > (range['high'] + range['high']*self.range_pct)):
                     self.logger.info(f"update_range(): Today's candle is above the range")
                     await slack.send_message("Closed Above Range Today")
                     value = {
@@ -93,7 +94,7 @@ class LibertyRange:
                             }
                     
                 # Below Range
-                elif (df.iloc[0]['close'] < (range['low'] - range['low']*0.001)):
+                elif (df.iloc[0]['close'] < (range['low'] - range['low']*self.range_pct)):
                     self.logger.info(f"update_range(): Today's candle is below the range")
                     await slack.send_message("Closed Below Range Today")
                     value = {

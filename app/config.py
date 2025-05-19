@@ -51,6 +51,7 @@ class TradeSettings(BaseSettings):
     SELL_TYPE: int = int(os.getenv("SELL_TYPE"))
     LIMIT_TYPE: int = int(os.getenv("LIMIT_TYPE"))
     MARKET_TYPE: int = int(os.getenv("MARKET_TYPE"))
+    NIFTY_SL_PCT: float = float(os.getenv("NIFTY_SL_PCT"))
 
     model_config = {
         "extra": "ignore"
