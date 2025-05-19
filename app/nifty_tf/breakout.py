@@ -261,12 +261,12 @@ class LibertyBreakout:
         self.logger.info(f"Updated SL price to {new_sl_price}")
 
 
-    async def trail_sl(self,side, symbol):        
+    async def trail_sl(self,side, orderID):        
         try:
             self.logger.info(f"trail_sl(): Starting SL monitor for {side} position")
             await slack.send_message(f"trail_sl(): Starting SL monitor for {side} position")
 
-            
+
             
         except Exception as e:
             self.logger.error(f"trail_sl(): Error in SL: {e}")
