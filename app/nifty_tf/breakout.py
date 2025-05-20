@@ -3,6 +3,7 @@ import threading
 from datetime import datetime, time
 import pandas as pd
 import math
+import pytz
 
 from app.utils.logging import get_logger
 from app.config import settings
@@ -308,9 +309,14 @@ class LibertyBreakout:
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
+
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)                        
+                        min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                        min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+                        filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]                        
+
                     if side == "Buy":
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
                         maxRR = max(maxRR,curr_RR)
@@ -334,31 +340,35 @@ class LibertyBreakout:
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
+
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)
-                    
+                        min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                        min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+                        filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
+
                     if side == "Buy":
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
                         maxRR = max(maxRR,curr_RR)
 
-                        if maxRR >= 1:
+                        if maxRR >= 1 and maxRR < 2.00:
                             new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.00:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Taking 0.5R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.50:
+                        if maxRR >= 2.50 and maxRR < 3.00:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1)) # Taking 1R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.00:
+                        if maxRR >= 3.00 and maxRR < 3.25:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1.25)) # Taking 1.25R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.25:
+                        if maxRR >= 3.25 and maxRR < 3.50:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1.5)) # Taking 1.5R
                             await self.update_sl_price(new_sl_price)
                             
@@ -372,23 +382,23 @@ class LibertyBreakout:
                         curr_RR = entry_price - filtered_df[1:]['low'].min()
                         maxRR = max(maxRR,curr_RR)
 
-                        if maxRR >= 1:
+                        if maxRR >= 1 and maxRR < 2.00:
                             new_sl_price = math.ceil(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.00:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 0.5)) # Taking 0.5R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.50:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1)) # Taking 1R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.00:
+                        if maxRR >= 3.00 and maxRR < 3.25:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.25)) # Taking 1.25R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.25:
+                        if maxRR >= 3.25 and maxRR < 3.50:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.5)) # Taking 1.5R
                             await self.update_sl_price(new_sl_price)
                             
@@ -405,31 +415,35 @@ class LibertyBreakout:
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
+
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)
+                        min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                        min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+                        filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]                        
                     
                     if side == "Buy":
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
                         maxRR = max(maxRR,curr_RR)
 
-                        if maxRR >= 1:
+                        if maxRR >= 1 and maxRR < 2.00:
                             new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.00:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Taking 0.5R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.50:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1)) # Taking 1R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.00:
+                        if maxRR >= 3.00 and maxRR < 3.25:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1.25)) # Taking 1.25R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.25:
+                        if maxRR >= 3.25 and maxRR < 3.50:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1.5)) # Taking 1.5R
                             await self.update_sl_price(new_sl_price)
                             
@@ -437,29 +451,27 @@ class LibertyBreakout:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1.75)) # Taking 1.75R
                             await self.update_sl_price(new_sl_price)
                             
-                            
-
                     else:
                         curr_RR = entry_price - filtered_df[1:]['low'].min()
                         maxRR = max(maxRR,curr_RR)
 
-                        if maxRR >= 1:
+                        if maxRR >= 1 and maxRR < 2.00:
                             new_sl_price = math.ceil(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.00:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 0.5)) # Taking 0.5R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.50:
+                        if maxRR >= 2.00 and maxRR < 2.50:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1)) # Taking 1R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.00:
+                        if maxRR >= 3.00 and maxRR < 3.25:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.25)) # Taking 1.25R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 3.25:
+                        if maxRR >= 3.25 and maxRR < 3.50:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.5)) # Taking 1.5R
                             await self.update_sl_price(new_sl_price)
                             
@@ -467,8 +479,6 @@ class LibertyBreakout:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.75)) # Taking 1.75R
                             await self.update_sl_price(new_sl_price)
                                                         
-
-                    
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
 

@@ -121,12 +121,16 @@ class LibertyFlow:
                 symbol = await self.place_order.place_nifty_order_new(side="Sell")
                 if len(symbol) > 0:
                     symbol = symbol[0]
-                    order_id = symbol[1]
+                    orderID = symbol[1]
             
             ### Calling SL Method in BG
-            # asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction)) 
-            await self.breakout.sl(symbol=symbol[0], side=direction) 
+            # await self.breakout.sl(symbol=symbol, side=direction)
+            sl_task  = asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction))
             self.logger.info(f"Called SL Method in BG for symbol: {symbol} and side: {direction}")
+            asyncio.sleep(5) # Waiting 5 seconds before starting trailing
+            #trailing_task = asyncio.create_task(self.breakout.trail_sl(orderID))
+            await self.breakout.trail_sl(orderID) ### Calling and waiting for it to return
+            
 
             await self.db.close()   
             return True                   
