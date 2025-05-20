@@ -235,6 +235,8 @@ class LibertyBreakout:
                 if (side == "Buy" and ltp <= sl_price) or (side == "Sell" and ltp >= sl_price):
                     self.logger.info(f"SL hit for position. LTP: {ltp}, SL: {sl_price}")
                     asyncio.run(self.place_order.exit_single_position(symbol=symbol))
+                    self.sl_state["exit_executed"] = True
+                    self.sl_state["active"] = False
         
         def on_error(err):
             self.logger.error(f"SL WebSocket error: {err}")
@@ -262,23 +264,30 @@ class LibertyBreakout:
         )        
         ws.connect()
 
-    def update_sl_price(self, new_sl_price):        
+    async def update_sl_price(self, new_sl_price):        
         with self.sl_lock:
             side = self.sl_state["side"]
             if side == "Buy":
                 if new_sl_price > self.sl_state["sl_price"]:
                     self.sl_state["sl_price"] = new_sl_price
+                    await slack.send_message(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    self.logger.info(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    return                    
             else:
                 if new_sl_price < self.sl_state["sl_price"]:
                     self.sl_state["sl_price"] = new_sl_price
-        self.logger.info(f"Updated SL price to {new_sl_price}")
+                    await slack.send_message(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    self.logger.info(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    return
+        self.logger.info(f"No trailing required for {new_sl_price}")
+        return
 
 
     async def trail_sl(self, orderID):        
         try:
             self.logger.info(f"trail_sl(): Starting SL monitor for {side} position")
             await slack.send_message(f"trail_sl(): Starting SL monitor for {side} position")
-            ### Add code to fetch orderDateTime from DB using orderID
+            order_time = self.db.fetch_order_timestamp(str(orderID))
             order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0)
             order_time = pd.Timestamp(order_time).tz_localize('Asia/Kolkata')
             with self.sl_lock:
@@ -292,7 +301,6 @@ class LibertyBreakout:
                 initial_sl_points = round(entry_price + initial_sl_price)
 
             maxRR = 0
-            rrFlag = False
             while datetime.now().time() < time(15, 10):
 
                 # Until 1:30 PM Trail
@@ -307,26 +315,21 @@ class LibertyBreakout:
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
                         maxRR = max(maxRR,curr_RR)
                         if maxRR >= 2:
-                            if not rrFlag:
-                                rrFlag = True
-                                await slack.send_message(f"trail_sl(): Found Max RR > 2 until 1.30 PM")
-                                new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
-                                self.update_sl_price(new_sl_price=new_sl_price)
+                            new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
+                            await self.update_sl_price(new_sl_price)
+                                                        
                     else:
                         curr_RR = entry_price - filtered_df[1:]['low'].min()
                         maxRR = max(maxRR,curr_RR)
                         if maxRR >= 2:
-                            if not rrFlag:
-                                rrFlag = True
-                                await slack.send_message(f"trail_sl(): Found Max RR > 2 until 1.30 PM")
-                                new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
-                                self.update_sl_price(new_sl_price=new_sl_price)
+                            new_sl_price = math.ceil(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
+                            await self.update_sl_price(new_sl_price)
+                                                        
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
 
                 # 1:30 - 2:30 PM Trail
                 maxRR = 0 # Resetting max RR
-                rrFlag = False # Resetting RR Flag to get notified Once if RR crosses thresholds
                 while datetime.now().time() > time(13, 30) and datetime.now().time() < time(14, 30):
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
@@ -334,59 +337,141 @@ class LibertyBreakout:
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)
+                    
                     if side == "Buy":
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
                         maxRR = max(maxRR,curr_RR)
-                        if maxRR >= 2:
+
+                        if maxRR >= 1:
                             new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
-                            self.update_sl_price(new_sl_price=new_sl_price)
-                            if not rrFlag:
-                                rrFlag = True
-                                await slack.send_message(f"trail_sl(): Found Max RR > 2 until 1.30 PM")
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.00:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Taking 0.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.50:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1)) # Taking 1R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.00:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1.25)) # Taking 1.25R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.25:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1.5)) # Taking 1.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.5:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1.75)) # Taking 1.75R
+                            await self.update_sl_price(new_sl_price)
+                            
+                            
 
                     else:
                         curr_RR = entry_price - filtered_df[1:]['low'].min()
                         maxRR = max(maxRR,curr_RR)
-                        if maxRR >= 2:
-                            new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
-                            self.update_sl_price(new_sl_price=new_sl_price)                            
-                            if not rrFlag:
-                                rrFlag = True
-                                await slack.send_message(f"trail_sl(): Found Max RR > 2 between 1:30 - 2:30 PM")
-                    
+
+                        if maxRR >= 1:
+                            new_sl_price = math.ceil(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.00:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 0.5)) # Taking 0.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.50:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1)) # Taking 1R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.00:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.25)) # Taking 1.25R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.25:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.5)) # Taking 1.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.5:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.75)) # Taking 1.75R
+                            await self.update_sl_price(new_sl_price)
+                                                        
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
 
                 # 2:30 - 3:08 PM Trail
                 maxRR = 0 # Resetting max RR
-                rrFlag = False # Resetting RR Flag to get notified Once if RR crosses thresholds
                 while datetime.now().time() > time(14, 30) and datetime.now().time() < time(15, 8):
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
-                        await self.trigger.wait_until_time(next_check)                        
+                        await self.trigger.wait_until_time(next_check)
+                    
                     if side == "Buy":
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
                         maxRR = max(maxRR,curr_RR)
-                        if maxRR >= 2:
+
+                        if maxRR >= 1:
                             new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
-                            self.update_sl_price(new_sl_price=new_sl_price)                            
-                            if not rrFlag:
-                                rrFlag = True
-                                await slack.send_message(f"trail_sl(): Found Max RR > 2 between 2:30 - 3:08 PM Trail")
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.00:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Taking 0.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.50:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1)) # Taking 1R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.00:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1.25)) # Taking 1.25R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.25:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1.5)) # Taking 1.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.5:
+                            new_sl_price = math.floor(entry_price + (initial_sl_points * 1.75)) # Taking 1.75R
+                            await self.update_sl_price(new_sl_price)
+                            
+                            
+
                     else:
                         curr_RR = entry_price - filtered_df[1:]['low'].min()
                         maxRR = max(maxRR,curr_RR)
-                        if maxRR >= 2:
-                            if not rrFlag:
-                                rrFlag = True
-                                await slack.send_message(f"trail_sl(): Found Max RR > 2 until 1.30 PM")
-                                new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
-                                self.update_sl_price(new_sl_price=new_sl_price)
+
+                        if maxRR >= 1:
+                            new_sl_price = math.ceil(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.00:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 0.5)) # Taking 0.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 2.50:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1)) # Taking 1R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.00:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.25)) # Taking 1.25R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.25:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.5)) # Taking 1.5R
+                            await self.update_sl_price(new_sl_price)
+                            
+                        if maxRR >= 3.5:
+                            new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.75)) # Taking 1.75R
+                            await self.update_sl_price(new_sl_price)
+                                                        
+
+                    
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
+
             return
             
         except Exception as e:

@@ -141,19 +141,18 @@ class LibertyDB:
             self.logger.error(f"Error Fetching Swing Price: {e}")
             return None
         
-    async def fetch_orderID(self,symbol):
+    async def fetch_timestamp(self,orderID):
         try:
             sql = f'''
-                    SELECT "{symbol}" FROM nifty.orders
-                    where date = CURRENT_DATE
-                    order by ctid DESC
+                    SELECT timestamp FROM nifty.orders
+                    where "orderID" = {orderID}
                     limit 1                
                 '''                 
             # Executing the SQL query 
             async with self.pool.acquire() as connection:
                 result = await connection.fetch(sql)
                 if result is not None:
-                    return str(result[0][symbol])
+                    return str(result[0]['timestamp'])
                 else:
                     return None
         except Exception as e:
