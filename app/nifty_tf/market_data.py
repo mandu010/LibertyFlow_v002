@@ -137,7 +137,6 @@ class LibertyMarketData:
                     INSERT INTO nifty.orders ("symbol", "qty", "orderID", "timestamp", "date","fullSymbol")
                     VALUES ('{order['description'].split(":")[-1]}','{order['qty']}','{order['id']}','{order['orderDateTime']}',CURRENT_DATE,'{order['symbol']}')
                     '''
-                print(sql)
                 await self.db.execute_query(sql=sql)
                 await slack.send_message(f"insert_order_data(): Order {order['description'].split(":")[-1]} inserted into DB successfully")
             else:

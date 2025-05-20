@@ -80,7 +80,7 @@ class LibertyTrigger():
             self.logger.info(f"ATR(): ATR Value: {atrVal}")
             #asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}"))
             await slack.send_message(f"ATR(): ATR Value: {atrVal}")
-            if atrVal >= 300:
+            if atrVal >= 300 or atrVal <= -300:
                 await self.db.execute_query(sqlTrue)
                 await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
                 print(atrVal)
@@ -241,7 +241,7 @@ class LibertyTrigger():
         return time(new_hour, next_5min)
     
     async def get_next_1min_interval(self):
-        """Get the next 5-minute interval time"""
+        """Get the next 1-minute interval time"""
         now = datetime.now()
         current_minute = now.minute
         # Calculate the next 5-minute mark
