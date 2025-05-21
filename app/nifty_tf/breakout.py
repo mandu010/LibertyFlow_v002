@@ -3,7 +3,6 @@ import threading
 from datetime import datetime, time
 import pandas as pd
 import math
-import pytz
 
 from app.utils.logging import get_logger
 from app.config import settings
@@ -198,17 +197,16 @@ class LibertyBreakout:
                 target=self._start_sl_websocket,
                 daemon=True
             )
-            print(side, symbol, entry_price, sl_price,self.sl_lock)
             ws_thread.start()
-            
             self.logger.info(f"SL websocket started in background thread")
 
-            #The below is a place holder until Trailing is implemented, later in Strategy main we will 
-            # await breakout.trailing_sl().done()
-            while datetime.now().time() < time(15, 0):
-                print(side, symbol, entry_price, sl_price,self.sl_lock)
-                await asyncio.sleep(3600)
+            # An event that only gets set if the SL is hit
+            sl_hit_event = asyncio.Event()        
+            self.sl_hit_event = sl_hit_event    
+            await self.sl_hit_event.wait()
+            self.logger.info("SL hit event received, SL task completing")
             return True
+        
         except Exception as e:
             self.logger.error(f"sl(): Error in SL: {e}")
             await slack.send_message(f"sl(): Error in SL: {e}")
@@ -238,6 +236,8 @@ class LibertyBreakout:
                     asyncio.run(self.place_order.exit_single_position(symbol=symbol))
                     self.sl_state["exit_executed"] = True
                     self.sl_state["active"] = False
+                    if hasattr(self, 'sl_hit_event'):
+                        asyncio.run(self._set_sl_hit_event())                    
         
         def on_error(err):
             self.logger.error(f"SL WebSocket error: {err}")
@@ -265,6 +265,10 @@ class LibertyBreakout:
         )        
         ws.connect()
 
+    async def _set_sl_hit_event(self):
+        if hasattr(self, 'sl_hit_event'):
+            self.sl_hit_event.set()
+
     async def update_sl_price(self, new_sl_price):        
         with self.sl_lock:
             side = self.sl_state["side"]
@@ -286,26 +290,32 @@ class LibertyBreakout:
 
     async def trail_sl(self, orderID):        
         try:
-            self.logger.info(f"trail_sl(): Starting SL monitor for {side} position")
-            await slack.send_message(f"trail_sl(): Starting SL monitor for {side} position")
-            order_time = self.db.fetch_order_timestamp(str(orderID))
+            order_time = await self.db.fetch_order_timestamp(str(orderID))
             order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0)
             order_time = pd.Timestamp(order_time).tz_localize('Asia/Kolkata')
             with self.sl_lock:
                 initial_sl_price = self.sl_state["sl_price"]
                 side = self.sl_state["side"]
+                if self.sl_state["exit_executed"]:
+                    self.logger.info("SL already hit, stopping trailing")
+                    return                
+            self.logger.info(f"trail_sl(): Starting SL monitor for {side} position")        
             if side == "Buy":
-                entry_price = self.db.fetch_swing_price(swing="swhPrice") + 1
-                initial_sl_points = round(entry_price - initial_sl_price)
+                entry_price = await self.db.fetch_swing_price(swing="swhPrice") + 1
+                initial_sl_points = round(abs(entry_price - initial_sl_price))
             else:
-                entry_price = self.db.fetch_swing_price(swing="swlPrice") - 1
-                initial_sl_points = round(entry_price + initial_sl_price)
+                entry_price = await self.db.fetch_swing_price(swing="swlPrice") - 1
+                initial_sl_points = round(abs(initial_sl_price - entry_price))
 
             maxRR = 0
             while datetime.now().time() < time(15, 10):
 
                 # Until 1:30 PM Trail
                 while datetime.now().time() < time(13, 30):
+                    with self.sl_lock:
+                        if self.sl_state["exit_executed"]:
+                            self.logger.info("SL hit during trailing, stopping trailing logic")
+                            return                    
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
@@ -337,6 +347,10 @@ class LibertyBreakout:
                 # 1:30 - 2:30 PM Trail
                 maxRR = 0 # Resetting max RR
                 while datetime.now().time() > time(13, 30) and datetime.now().time() < time(14, 30):
+                    with self.sl_lock:
+                        if self.sl_state["exit_executed"]:
+                            self.logger.info("SL hit during trailing, stopping trailing logic")
+                            return                    
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
@@ -376,8 +390,6 @@ class LibertyBreakout:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1.75)) # Taking 1.75R
                             await self.update_sl_price(new_sl_price)
                             
-                            
-
                     else:
                         curr_RR = entry_price - filtered_df[1:]['low'].min()
                         maxRR = max(maxRR,curr_RR)
@@ -390,7 +402,7 @@ class LibertyBreakout:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 0.5)) # Taking 0.5R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.00 and maxRR < 2.50:
+                        if maxRR >= 2.50 and maxRR < 3.00:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1)) # Taking 1R
                             await self.update_sl_price(new_sl_price)
                             
@@ -412,6 +424,10 @@ class LibertyBreakout:
                 # 2:30 - 3:08 PM Trail
                 maxRR = 0 # Resetting max RR
                 while datetime.now().time() > time(14, 30) and datetime.now().time() < time(15, 8):
+                    with self.sl_lock:
+                        if self.sl_state["exit_executed"]:
+                            self.logger.info("SL hit during trailing, stopping trailing logic")
+                            return                    
                     min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
@@ -435,7 +451,7 @@ class LibertyBreakout:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 0.5)) # Taking 0.5R
                             await self.update_sl_price(new_sl_price)
                             
-                        if maxRR >= 2.00 and maxRR < 2.50:
+                        if maxRR >= 2.50 and maxRR < 3.00:
                             new_sl_price = math.floor(entry_price + (initial_sl_points * 1)) # Taking 1R
                             await self.update_sl_price(new_sl_price)
                             

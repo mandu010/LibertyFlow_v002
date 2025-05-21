@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime,time
+import traceback
 
 from app.nifty_tf.range import LibertyRange
 from app.nifty_tf.breakout import LibertyBreakout
@@ -33,6 +34,7 @@ class LibertyFlow:
     
     async def run(self) -> None:
         try:
+            active_tasks = []
             self.logger.info("LibertyFlow run started")
             pctTrigger, atrTrigger, rangeTrigger = False, False, False ### Initializing triggers as False
             sql='''INSERT INTO nifty.trigger_status (date, pct_trigger, atr, range)
@@ -82,10 +84,12 @@ class LibertyFlow:
             ### Exiting if not Triggered
             if not any([pctTrigger, atrTrigger, rangeTrigger]):
                 self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
-                asyncio.create_task(self.db.update_status(status='Not Triggered'))
+                task = asyncio.create_task(self.db.update_status(status='Not Triggered'))
+                active_tasks.append(task)
                 return 1   
             if pctTrigger or atrTrigger or rangeTrigger:
-                asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
+                task = asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
+                active_tasks.append(task)
 
                 trigger_time = await self.db.fetch_trigger_time() 
                 if trigger_time is not None and len(trigger_time) != 0:
@@ -114,30 +118,69 @@ class LibertyFlow:
                 asyncio.create_task(slack.send_message("Order Placed: Long"))
                 # await self.place_order.place_nifty_order(side="Buy")
                 symbol = await self.place_order.place_nifty_order_new(side="Buy")
+                if symbol and len(symbol) > 0:
+                    symbol = symbol[0]
+                    orderID = symbol[1]      
+                else:
+                    self.logger.error("Order placement failed - no order details returned.")
+                    await slack.send_message("Order placement failed.\nCheck ASAP or Trail manually.")                              
+                    return 1
             else:
                 self.logger.info("direction: Sell")
                 asyncio.create_task(slack.send_message("Order Placed: Short"))
                 # await self.place_order.place_nifty_order(side="Sell")
                 symbol = await self.place_order.place_nifty_order_new(side="Sell")
-                if len(symbol) > 0:
+                if symbol and len(symbol) > 0:
                     symbol = symbol[0]
                     orderID = symbol[1]
+                else:
+                    self.logger.error("Order placement failed - no order details returned.")
+                    await slack.send_message("Order placement failed.\nCheck ASAP or Trail manually.")                     
+                    return 1
             
             ### Calling SL Method in BG
             # await self.breakout.sl(symbol=symbol, side=direction)
             sl_task  = asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction))
+            active_tasks.append(sl_task)
             self.logger.info(f"Called SL Method in BG for symbol: {symbol} and side: {direction}")
-            asyncio.sleep(5) # Waiting 5 seconds before starting trailing
-            #trailing_task = asyncio.create_task(self.breakout.trail_sl(orderID))
-            await self.breakout.trail_sl(orderID) ### Calling and waiting for it to return
-            
+            await asyncio.sleep(5) # Waiting 5 seconds before starting trailing
+            trailing_task = asyncio.create_task(self.breakout.trail_sl(orderID))
+            active_tasks.append(trailing_task)
+            # await self.breakout.trail_sl(orderID) ### Calling and waiting for it to return
 
-            await self.db.close()   
+            ### Waiting for SL or Market Close
+            try:
+                end_time = time(15, 10)
+                while datetime.now().time() < end_time:
+                    # Check if SL was hit
+                    with self.breakout.sl_lock:
+                        if self.breakout.sl_state["exit_executed"]:
+                            self.logger.info("SL was hit, exiting run method")
+                            break
+                    await asyncio.sleep(300) # Checking in every 5 minutes
+                if not sl_task.done():
+                    sl_task.cancel()
+                if not trailing_task.done():
+                    trailing_task.cancel()
+                    
+                self.logger.info("Execution completed.")            
+            except Exception as e:
+                self.logger.error(f"Error while waiting for SL or market close: {e}")          
             return True                   
 
         except Exception as e:
-            self.logger.error(f"Error in LibertyFlow run: {e}", exc_info=True)
+            error_traceback = traceback.format_exc()
+            self.logger.error(f"Error in LibertyFlow run: {e}\n{error_traceback}")
+            await slack.send_message(f"run(): Error in LibertyFlow run: {e}\n{error_traceback}")
             return 1
+        finally:
+            try:
+                await self.db.close()   
+                for task in active_tasks:
+                    if not task.done():
+                        task.cancel()
+            except Exception as db_err:
+                self.logger.error(f"Error closing database: {db_err}")                        
 
     async def run_swh_formation(self, swing_instance):
         """Run SWH formation and immediately notify breakout when it forms"""
@@ -242,7 +285,7 @@ class LibertyFlow:
                     
                     # If both swings formed but no breakout by 13:00, exit
                     if both_swings_formed and datetime.now().time() >= time(13, 00) and not breakout_detected:
-                        self.logger.info("Both swings formed but no breakout by 12:30, ending session")
+                        self.logger.info("Both swings formed but no breakout by 13:00, ending session")
                         
                         # Update status in DB
                         sqlStatus = '''UPDATE nifty.status 

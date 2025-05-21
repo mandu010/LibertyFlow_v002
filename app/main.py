@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import traceback
 
 from app.utils.logging import get_logger
 import signal
@@ -10,11 +11,43 @@ from app.nifty_tf.strategy_main import LibertyFlow
 #from app.nifty_tf.strategy_main_test import LibertyFlow
 from app.slack import slack
 
+# global logger
 logger = get_logger("MAIN")
 
+# Global flags for clean shutdown
+shutdown_requested = False
+strategy = None  # Global reference to allow proper cleanup
+
+async def shutdown(signal_name=None):
+    """Gracefully shut down the application"""
+    global shutdown_requested
+    
+    if shutdown_requested:
+        logger.warning("Shutdown already in progress, ignoring repeated signal")
+        return
+        
+    shutdown_requested = True
+    
+    if signal_name:
+        logger.info(f"Received {signal_name}, initiating shutdown")
+    else:
+        logger.info("Initiating shutdown")
+    
+    await slack.send_message("Liberty Flow shutting down...")
+    
+    # Cleanup strategy if it exists
+    if strategy is not None:
+        logger.info("Stopping strategy...")
+        # Strategy already handles DB closing, so we don't need to close it again here
+    
+    # Wait briefly for any pending async operations to complete
+    await asyncio.sleep(1)
+    
+    logger.info("Shutdown complete")
+
 async def main():
-    #global db, fyers_client
     # Setup logging first
+    global strategy
     setup_logging()
     logger.info("Starting Liberty Flow...")
     asyncio.create_task(slack.send_message("Starting Liberty Flow..."))
@@ -28,23 +61,35 @@ async def main():
         # Initialize Fyers client
         logger.info("Initializing Fyers client...")
         fyers = await fyersClient.connect()
-        if fyers is not None:
-            print("Fyers client connected successfully")
-            logger.info("Fyers client initialized")
-        else:
+        if fyers is None:
             logger.error("Fyers client initialization failed")
+            await slack.send_message("ERROR: Fyers client initialization failed. Exiting.")
+            await db.close()
             return 1
         
+        logger.info("Fyers client initialized")
+
         # Initializing & Running Strategy
-        strategy = LibertyFlow(db, fyers)
-        await strategy.run()   
+        strategy = LibertyFlow(db, fyers)        
+        result = await strategy.run()   
+
+        # Check result and log appropriately
+        if result == 1:
+            logger.warning("Strategy execution completed with warnings")
+        else:
+            logger.info("Strategy execution completed successfully")
+            
+        await slack.send_message("Liberty Flow execution completed")        
+
+        # Returning exit code based on strategy result
+        return 0 if result != 1 else 1
             
     except Exception as e:
-        logger.error(f"Error in main function: {str(e)}", exc_info=True)
+        error_traceback = traceback.format_exc()
+        logger.error(f"Error in main function: {e}\n{error_traceback}")
+        await slack.send_message(f"CRITICAL ERROR: Application failed: {str(e)[:200]}")
         return 1
 
-    print("About to exit")
-    return 0 
 
 if __name__ == "__main__":
     # Set up signal handlers
@@ -57,5 +102,10 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
     except Exception as e:
-        logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+        error_traceback = traceback.format_exc()
+        logger.error(f"Unhandled exception: {str(e)}\n{error_traceback}")
+        try:
+            asyncio.run(slack.send_message(f"FATAL ERROR: Application crashed: {str(e)[:200]}"))
+        except:
+            pass        
         sys.exit(1)
