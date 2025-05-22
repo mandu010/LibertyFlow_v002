@@ -286,7 +286,10 @@ class Nifty_OMS:
             for exitPosition in openPositions:
                 print(exitPosition)
                 symbol = exitPosition['symbol']
-                qty = exitPosition['qty']
+                try:
+                    positionQty = exitPosition['qty']
+                except:
+                    positionQty = exitPosition['netQty']
                 initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
                 print(f"Initial Quote: {initial_quote}")
                 bid_price = initial_quote['bid']
@@ -296,7 +299,7 @@ class Nifty_OMS:
                     'productType':self.nifty_product_type,
                     'side': self.sell_side,
                     'symbol': symbol,
-                    'qty': qty,
+                    'qty': positionQty,
                     'type': self.limit_type,
                     'validity':'DAY',
                     'limitPrice': limit_price,
