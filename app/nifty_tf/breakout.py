@@ -290,7 +290,7 @@ class LibertyBreakout:
 
     async def trail_sl(self, orderID):        
         try:
-            order_time = await self.db.fetch_order_timestamp(str(orderID))
+            order_time = await self.db.fetch_timestamp(str(orderID))
             order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0)
             order_time = pd.Timestamp(order_time).tz_localize('Asia/Kolkata')
             with self.sl_lock:
