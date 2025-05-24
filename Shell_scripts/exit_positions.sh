@@ -6,7 +6,6 @@
 # Define paths
 LIBERTY_ENV="/mnt/LibertyFlow/LibertyFlowEnv"
 LIBERTY_APP="/mnt/LibertyFlow/LibertyFlow_v002"
-FYERS_AUTH_SCRIPT="${LIBERTY_APP}/fyers_auth.py"
 
 # 1. Activate the Python virtual environment
 source "${LIBERTY_ENV}/bin/activate"

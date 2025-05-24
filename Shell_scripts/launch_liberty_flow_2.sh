@@ -6,7 +6,6 @@
 # Define paths
 LIBERTY_ENV="/mnt/LibertyFlow/LibertyFlowEnv"
 LIBERTY_APP="/mnt/LibertyFlow/LibertyFlow_v002"
-FYERS_AUTH_SCRIPT="${LIBERTY_APP}/working_login.py"
 
 # 1. Activate the Python virtual environment
 source "${LIBERTY_ENV}/bin/activate"
@@ -14,9 +13,9 @@ source "${LIBERTY_ENV}/bin/activate"
 # 2. Change directory to the Liberty Flow application folder
 cd "${LIBERTY_APP}"
 
-# 3. Run Fyers authentication script
+# 3. Run Fyers Access token generation script
 
-python3 "${FYERS_AUTH_SCRIPT}"
+python3 -m app.generate_token
 
 
 # Check if authentication was successful
