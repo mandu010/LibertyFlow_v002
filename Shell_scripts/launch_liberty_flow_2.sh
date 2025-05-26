@@ -17,6 +17,8 @@ cd "${LIBERTY_APP}"
 
 python3 -m app.generate_token
 
+# 5. Run Fyers Client Check
+python3 -m app.test_fyers_connection
 
 # Check if authentication was successful
 if [ $? -ne 0 ]; then
@@ -26,7 +28,7 @@ fi
 
 echo "Authentication successful. Starting Liberty Flow application..."
 
-# 4. Run the main application module
+# 5. Run the main application module
 python3 -m app.main
 
 # Add exit status message

@@ -192,19 +192,6 @@ async def main():
             logger.info("Access token generation completed successfully")
             await slack.send_message("Access token generated successfully")
             logger.info("Importing Settings Module again to reload Env")
-            from app.config import settings
-            
-            # Test Fyers client connection with new token
-            logger.info("Testing Fyers client connection...")
-            fyers = await fyersClient.connect()
-            if fyers is not None:
-                logger.info("Fyers client connection test successful")
-                await slack.send_message("Fyers client connection verified")
-            else:
-                logger.warning("Fyers client connection test failed")
-                await slack.send_message("WARNING: Fyers client connection test failed")
-                return 1
-                
             return 0
         else:
             logger.error("Access token generation failed")
