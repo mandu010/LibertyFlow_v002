@@ -191,6 +191,8 @@ async def main():
             await asyncio.sleep(2)  
             logger.info("Access token generation completed successfully")
             await slack.send_message("Access token generated successfully")
+            logger.info("Importing Settings Module again to reload Env")
+            from app.config import settings
             
             # Test Fyers client connection with new token
             logger.info("Testing Fyers client connection...")
