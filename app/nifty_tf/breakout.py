@@ -290,8 +290,12 @@ class LibertyBreakout:
 
     async def trail_sl(self, orderID):        
         try:
+            self.logger.info(f"trail_sl(): Order ID Received: {orderID} Type: {type(orderID)}")
             order_time = await self.db.fetch_timestamp(str(orderID))
-            order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0)
+            if order_time is None:
+                await asyncio.sleep(5)
+                order_time = await self.db.fetch_timestamp(str(orderID))
+            order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0) 
             order_time = pd.Timestamp(order_time).tz_localize('Asia/Kolkata')
             with self.sl_lock:
                 initial_sl_price = self.sl_state["sl_price"]
