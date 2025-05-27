@@ -7,6 +7,7 @@ from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
 from app.nifty_tf.trigger import LibertyTrigger
 from app.slack import slack
+from app.fyers.oms.nifty_tf_oms import Nifty_OMS
 
 class LibertySwing():
     """
@@ -31,6 +32,7 @@ class LibertySwing():
         self.fyers = fyers
         self.LibertyMarketData = LibertyMarketData(db, fyers)
         self.trigger = LibertyTrigger(db, fyers)
+        self.place_order = Nifty_OMS(db, fyers)
     
     async def SWH(self) -> bool:
         try:

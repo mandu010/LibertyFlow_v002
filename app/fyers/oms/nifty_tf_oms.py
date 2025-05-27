@@ -430,3 +430,35 @@ class Nifty_OMS:
         except Exception as e:
             print(f"Error: {e}")
             self.logger.error(f"exit_position(): {e}")                          
+
+    async def set_option_symbol(self,side,ltp,strike_interval=50):
+        try:
+            print(f"set_option_symbol(): ltp:{ltp}",type(ltp))
+            self.logger.info(f"set_option_symbol(): LTP: {ltp}")
+            print(ltp)            
+            if ltp is not None:
+                ATM =  round(ltp/strike_interval)*strike_interval
+                ### Stepping 1 Down in ATM strike
+                if side == "Buy":
+                    ATM = ATM - 50
+                else:
+                    ATM = ATM + 50
+                print(ATM)
+
+            else:
+                raise Exception
+            url = 'https://public.fyers.in/sym_details/NSE_FO.csv'
+            df = pd.read_csv(url, header=None)
+            if side == "Buy":
+                optionType="CE"
+            else:
+                optionType="PE"
+            df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
+            expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
+            if expiry_date != datetime.today().date():
+                return str(df_filtered.iloc[0][9])
+            else:
+                return str(df_filtered.iloc[1][9])
+        except Exception as e:
+            self.logger.error(f"set_option_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")
+            return None            
