@@ -1,8 +1,10 @@
 import asyncio
 import sys
+import signal
+import os
+from dotenv import load_dotenv, set_key, find_dotenv
 
 from app.utils.logging import get_logger
-import signal
 from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
@@ -10,7 +12,7 @@ from app.nifty_tf.strategy_main import LibertyFlow
 from app.nifty_tf.range import LibertyRange
 from app.slack import slack
 
-logger = get_logger("MAIN")
+logger = get_logger("RANGE_UPDATE")
 
 async def main():
     # Setup logging first
@@ -39,7 +41,13 @@ async def main():
         range_val = await range.read_range()
         print(range_val)
         if range_val is not None:
-            await range.update_range(range_val)            
+            await range.update_range(range_val)       
+                 
+        dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+        load_dotenv(dotenv_path)            
+        set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', "")
+        set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', "")
+        logger.info("Cleared Nifty Buy and Sell Symbols")
     except Exception as e:
         logger.error(f"Error in main function: {str(e)}", exc_info=True)
         return 1

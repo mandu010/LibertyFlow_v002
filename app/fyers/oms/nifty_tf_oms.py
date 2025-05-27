@@ -4,6 +4,8 @@ import pandas as pd
 import asyncio
 import threading
 import time
+import os
+from dotenv import load_dotenv, set_key, find_dotenv
 
 from app.utils.logging import get_logger
 from app.nifty_tf.market_data import LibertyMarketData
@@ -98,7 +100,18 @@ class Nifty_OMS:
     async def place_nifty_order_new(self,side) -> str:
         # This returns symbol and order date time, both in string
         try:
-            symbol = await self.get_symbol(side)
+            try:
+                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                load_dotenv(dotenv_path)
+                if side == "Buy":
+                    symbol = os.getenv("NIFTY_BUY_SYMBOL")
+                else:
+                    symbol = os.getenv("NIFTY_SELL_SYMBOL")
+                if symbol is None or symbol == "":
+                    raise Exception("Symbol not found in .env file")
+            except Exception as e:
+                self.logger.error("place_nifty_order_new(): Failed to Get Symbol from .env file. Error: {e}")
+                symbol = await self.get_symbol(side)
             # symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
             self.logger.info(f"Placing order for: {symbol}")
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
@@ -435,7 +448,6 @@ class Nifty_OMS:
         try:
             print(f"set_option_symbol(): ltp:{ltp}",type(ltp))
             self.logger.info(f"set_option_symbol(): LTP: {ltp}")
-            print(ltp)            
             if ltp is not None:
                 ATM =  round(ltp/strike_interval)*strike_interval
                 ### Stepping 1 Down in ATM strike
@@ -444,7 +456,6 @@ class Nifty_OMS:
                 else:
                     ATM = ATM + 50
                 print(ATM)
-
             else:
                 raise Exception
             url = 'https://public.fyers.in/sym_details/NSE_FO.csv'
@@ -456,9 +467,23 @@ class Nifty_OMS:
             df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
             expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
             if expiry_date != datetime.today().date():
-                return str(df_filtered.iloc[0][9])
+                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                load_dotenv(dotenv_path)
+                if side == "Buy":
+                    set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', str(df_filtered.iloc[0][9]))
+                else:
+                    set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', str(df_filtered.iloc[0][9]))
+
+                return True
             else:
-                return str(df_filtered.iloc[1][9])
+                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                load_dotenv(dotenv_path)
+                if side == "Buy":
+                    set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', str(df_filtered.iloc[1][9]))
+                else:
+                    set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', str(df_filtered.iloc[1][9]))                
+
+                return True
         except Exception as e:
             self.logger.error(f"set_option_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")
             return None            

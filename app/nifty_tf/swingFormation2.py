@@ -74,6 +74,12 @@ class LibertySwing():
                         SET "swhPrice" = {swhPrice}, "swhTime" = '{str(referenceCandle.iloc[-1]['timestamp'].time())}'
                         WHERE date = CURRENT_DATE '''
                         await self.db.execute_query(sqlTrue)
+
+                        # Setting Symbol for Buy Position
+                        try:
+                            await self.place_order.set_option_symbol(side="Buy",ltp=float(swhPrice))
+                        except Exception as e:
+                            self.logger.error("SWH(): Error Setting Symbol. Error: {e}")
                         return True
                     else:
                         df_cut = filtered_df_data.iloc[:-1]
@@ -132,6 +138,12 @@ class LibertySwing():
                         SET "swlPrice" = {swlPrice}, "swlTime" = '{str(referenceCandle.iloc[-1]['timestamp'].time())}'
                         WHERE date = CURRENT_DATE '''
                         await self.db.execute_query(sqlTrue)
+                        
+                        # Setting Symbol for Sell Position
+                        try:
+                            await self.place_order.set_option_symbol(side="Sell",ltp=float(swlPrice))
+                        except Exception as e:
+                            self.logger.error("SWH(): Error Setting Symbol. Error: {e}")                        
                         return True
                     else:
                         df_cut = filtered_df_data.iloc[:-1]
