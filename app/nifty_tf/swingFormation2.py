@@ -77,7 +77,7 @@ class LibertySwing():
                         df_cut = filtered_df_data.iloc[:-1]
                         max_high = df_cut['high'].max()
                         trigger_row = df_cut[df_cut['high'] == max_high]
-                        trigger_time = str(trigger_row['timestamp'].iloc[-1].time())
+                        trigger_time = str(trigger_row['timestamp'].iloc[0].time())
                         sqlUpdate = f'''UPDATE nifty.trigger_status 
                         SET "swhTime" = '{trigger_time}'
                         WHERE date = CURRENT_DATE '''
@@ -136,8 +136,8 @@ class LibertySwing():
                         min_low = df_cut['low'].min()
                         trigger_row = df_cut[df_cut['low'] == min_low]
                         self.logger.info(f"Trigger_row:{trigger_row},df_cut:{df_cut},min_low:{min_low}")
-                        print("SWL(),",trigger_row,trigger_row['timestamp'].iloc[-1].time())
-                        trigger_time = str(trigger_row['timestamp'].iloc[-1].time())
+                        print("SWL(),",trigger_row,trigger_row['timestamp'].iloc[0].time())
+                        trigger_time = str(trigger_row['timestamp'].iloc[0].time()) ### This caused an issue, 27th May-> 9:55 and 10:00
                         sqlUpdate = f'''UPDATE nifty.trigger_status 
                             SET "swlTime" = '{trigger_time}'
                             WHERE date = CURRENT_DATE '''
