@@ -295,7 +295,8 @@ class LibertyBreakout:
             if order_time is None:
                 await asyncio.sleep(5)
                 order_time = await self.db.fetch_timestamp(str(orderID))
-            order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0) 
+            # order_time = datetime.strptime(order_time, '%d-%b-%Y %H:%M:%S').replace(second=0) 
+            order_time = datetime.strptime(order_time, '%Y-%m-%d %H:%M:%S').replace(second=0)
             order_time = pd.Timestamp(order_time).tz_localize('Asia/Kolkata')
             with self.sl_lock:
                 initial_sl_price = self.sl_state["sl_price"]
@@ -329,7 +330,7 @@ class LibertyBreakout:
                         await self.trigger.wait_until_time(next_check)                        
                         min1_data_df = await self.LibertyMarketData.fetch_1min_data()
                         min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
-                        filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]                        
+                        filtered_df = min1_data_df[min1_data_df['timestamp'] > order_time] # Checking from next minute of Order time stamp
 
                     if side == "Buy":
                         curr_RR = filtered_df[1:]['high'].max() - entry_price
