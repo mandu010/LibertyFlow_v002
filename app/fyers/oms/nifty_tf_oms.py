@@ -112,7 +112,9 @@ class Nifty_OMS:
             except Exception as e:
                 self.logger.error("place_nifty_order_new(): Failed to Get Symbol from .env file. Error: {e}")
                 symbol = await self.get_symbol(side)
-            # symbol='MCX:GOLDPETAL25MAYFUT' # Remove this later
+            #Debugging settings
+            # symbol='NSE:SBIN-EQ' # Comment this later
+            # self.qty = 1 # Comment this later
             self.logger.info(f"Placing order for: {symbol}")
             initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
             ask_price = initial_quote['ask']
@@ -136,7 +138,7 @@ class Nifty_OMS:
             else:
                 self.logger.error("place_nifty_order_new(): Failed to Place Order")
                 await slack.send_message(f"place_nifty_order_new(): Failed to Place Order \n Place order manually for {symbol} Response: {response}")
-                return False
+                return None, None
             
             self.logger.info(f"Order Placed. Response:{response}\n")
 
@@ -178,11 +180,12 @@ class Nifty_OMS:
                 else:
                     self.logger.error("place_nifty_order_new(): Failed to Place Order")
                     await slack.send_message(f"place_nifty_order_new(): Failed to Place Order at Market \n Place order manually for {symbol}")
-                    return False                
+                    return None, None               
 
         except Exception as e:
             print(f"Error: {e}")
             self.logger.error(f"place_nifty_order_new(): {e}")
+            return None, None
 
     async def _monitor_order_websocket(self, order_id, symbol, initial_ask, counter, order_complete_event):
         """
@@ -466,23 +469,22 @@ class Nifty_OMS:
                 optionType="PE"
             df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
             expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
+            dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+            load_dotenv(dotenv_path)            
             if expiry_date != datetime.today().date():
-                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
-                load_dotenv(dotenv_path)
+                symbol = str(df_filtered.iloc[0][9])
                 if side == "Buy":
-                    set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', str(df_filtered.iloc[0][9]))
+                    set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', symbol)
                 else:
-                    set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', str(df_filtered.iloc[0][9]))
-
+                    set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', symbol)
                 return True
             else:
-                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
-                load_dotenv(dotenv_path)
+                symbol = str(df_filtered.iloc[1][9])
                 if side == "Buy":
-                    set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', str(df_filtered.iloc[1][9]))
+                    set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', symbol)
                 else:
-                    set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', str(df_filtered.iloc[1][9]))                
-
+                    set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', symbol)                
+                self.logger.info(f"set_option_symbol(): Set {side} Symbol: {symbol}")
                 return True
         except Exception as e:
             self.logger.error(f"set_option_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")

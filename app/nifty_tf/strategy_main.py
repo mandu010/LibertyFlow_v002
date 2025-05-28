@@ -116,37 +116,29 @@ class LibertyFlow:
             if direction == "Buy":
                 self.logger.info("direction: Buy")
                 asyncio.create_task(slack.send_message("Order Placed: Long"))
-                # await self.place_order.place_nifty_order(side="Buy")
-                symbol = await self.place_order.place_nifty_order_new(side="Buy")
-                if symbol and len(symbol) > 0:
-                    symbol = symbol[0]
-                    orderID = symbol[1]      
-                else:
+                symbol, orderID = await self.place_order.place_nifty_order_new(side="Buy")
+                self.logger.info(f"Output from place_order: {symbol} {orderID}")                
+                if symbol is None or orderID is None :
                     self.logger.error("Order placement failed - no order details returned.")
                     await slack.send_message("Order placement failed.\nCheck ASAP or Trail manually.")                              
                     return 1
             else:
                 self.logger.info("direction: Sell")
                 asyncio.create_task(slack.send_message("Order Placed: Short"))
-                # await self.place_order.place_nifty_order(side="Sell")
-                symbol = await self.place_order.place_nifty_order_new(side="Sell")
-                if symbol and len(symbol) > 0:
-                    symbol = symbol[0]
-                    orderID = symbol[1]
-                else:
+                symbol, orderID = await self.place_order.place_nifty_order_new(side="Sell")
+                self.logger.info(f"Output from place_order: {symbol} {orderID}")
+                if symbol is None or orderID is None :
                     self.logger.error("Order placement failed - no order details returned.")
-                    await slack.send_message("Order placement failed.\nCheck ASAP or Trail manually.")                     
+                    await slack.send_message("Order placement failed.\nCheck ASAP or Trail manually.")                              
                     return 1
             
             ### Calling SL Method in BG
-            # await self.breakout.sl(symbol=symbol, side=direction)
             sl_task  = asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction))
             active_tasks.append(sl_task)
-            self.logger.info(f"Called SL Method in BG for symbol: {symbol} and side: {direction}")
+            self.logger.info(f"Called SL Method in Background for symbol: {symbol} and side: {direction}")
             await asyncio.sleep(5) # Waiting 5 seconds before starting trailing
             trailing_task = asyncio.create_task(self.breakout.trail_sl(orderID))
             active_tasks.append(trailing_task)
-            # await self.breakout.trail_sl(orderID) ### Calling and waiting for it to return
 
             ### Waiting for SL or Market Close
             try:

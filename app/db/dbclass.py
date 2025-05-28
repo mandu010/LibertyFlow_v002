@@ -156,7 +156,7 @@ class LibertyDB:
                 else:
                     return None
         except Exception as e:
-            self.logger.error(f"Error Fetching Swing Price: {e}")
+            self.logger.error(f"Error Fetching Order Time Stamp: {e}")
             return None
 
 
