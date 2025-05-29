@@ -179,7 +179,7 @@ class LibertyBreakout:
                 sl_price = round(entry_price + (entry_price * self.sl_percent))
                 self.logger.info(f"SL price set at {sl_price} for Sell position")
 
-            self.logger.info(f"Starting SL monitor for {side} position at entry price {entry_price}")
+            self.logger.info(f"Starting SL monitor for {side} position at entry price {entry_price} SL at {sl_price}")
             await slack.send_message(f"Starting SL monitor for {side} position at entry price {entry_price}")
             
             # Update state with lock for thread safety
@@ -333,19 +333,20 @@ class LibertyBreakout:
                         filtered_df = min1_data_df[min1_data_df['timestamp'] > order_time] # Checking from next minute of Order time stamp
 
                     if side == "Buy":
-                        curr_RR = filtered_df[1:]['high'].max() - entry_price
+                        curr_RR = round(((filtered_df[1:]['high'].max() - entry_price)/initial_sl_points),2)
                         maxRR = max(maxRR,curr_RR)
                         if maxRR >= 2:
                             new_sl_price = math.floor(entry_price - (initial_sl_points * 0.5)) # Trailing 50%
                             await self.update_sl_price(new_sl_price)
                                                         
                     else:
-                        curr_RR = entry_price - filtered_df[1:]['low'].min()
+                        curr_RR = round(((entry_price - filtered_df[1:]['low'].min())/initial_sl_points),2)
                         maxRR = max(maxRR,curr_RR)
                         if maxRR >= 2:
                             new_sl_price = math.ceil(entry_price + (initial_sl_points * 0.5)) # Trailing 50%
                             await self.update_sl_price(new_sl_price)
-                                                        
+
+                    self.logger.info(f"maxRR: {maxRR}, current RR: {curr_RR}, entry price: {entry_price}, new SL price: {new_sl_price}")                                    
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
 
@@ -368,7 +369,7 @@ class LibertyBreakout:
                         filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
 
                     if side == "Buy":
-                        curr_RR = filtered_df[1:]['high'].max() - entry_price
+                        curr_RR = round(((filtered_df[1:]['high'].max() - entry_price)/initial_sl_points),2)
                         maxRR = max(maxRR,curr_RR)
 
                         if maxRR >= 1 and maxRR < 2.00:
@@ -396,7 +397,7 @@ class LibertyBreakout:
                             await self.update_sl_price(new_sl_price)
                             
                     else:
-                        curr_RR = entry_price - filtered_df[1:]['low'].min()
+                        curr_RR = round(((entry_price - filtered_df[1:]['low'].min())/initial_sl_points),2)
                         maxRR = max(maxRR,curr_RR)
 
                         if maxRR >= 1 and maxRR < 2.00:
@@ -445,7 +446,7 @@ class LibertyBreakout:
                         filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]                        
                     
                     if side == "Buy":
-                        curr_RR = filtered_df[1:]['high'].max() - entry_price
+                        curr_RR = round(((filtered_df[1:]['high'].max() - entry_price)/initial_sl_points),2)
                         maxRR = max(maxRR,curr_RR)
 
                         if maxRR >= 1 and maxRR < 2.00:
@@ -473,7 +474,7 @@ class LibertyBreakout:
                             await self.update_sl_price(new_sl_price)
                             
                     else:
-                        curr_RR = entry_price - filtered_df[1:]['low'].min()
+                        curr_RR = round(((entry_price - filtered_df[1:]['low'].min())/initial_sl_points),2)
                         maxRR = max(maxRR,curr_RR)
 
                         if maxRR >= 1 and maxRR < 2.00:
