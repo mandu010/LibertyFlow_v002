@@ -63,13 +63,13 @@ class FyersClient:
         try:
             url = 'https://public.fyers.in/sym_details/NSE_FO.csv'
             df = pd.read_csv(url, header=None)
-            df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"FUT")]
+            df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"FUT") & ~df[9].str.contains(f"NXT")]
             expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
             if expiry_date != datetime.today().date():
                 symbol = str(df_filtered.iloc[0][9])
             else:
                 symbol = str(df_filtered.iloc[1][9])
-            dotenv_path = find_dotenv()  
+            dotenv_path = find_dotenv() 
             set_key(dotenv_path, 'NIFTY_SYMBOL', symbol)
             logger.info(f"_update_nifty_symbol(): Setting Nifty Symbol: {symbol}")
             return True

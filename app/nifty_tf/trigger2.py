@@ -19,6 +19,13 @@ class LibertyTrigger():
 
     async def pct_trigger(self, range) -> bool:
         try:
+            while True:
+                if datetime.now().time() < time(9, 16, 15):
+                    next_check = await self.get_next_1min_interval()
+                    await self.wait_until_time(next_check)
+                    break
+                else:
+                    break            
             min1_df = await self.LibertyMarketData.fetch_1min_data()
             min1_df['timestamp'] = pd.to_datetime(min1_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
 
