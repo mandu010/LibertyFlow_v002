@@ -64,9 +64,11 @@ class LibertyBreakout:
         if swh_price is not None:
             self.swh_price = swh_price
             self.logger.info(f"Registered SWH → {self.swh_price}")
+            await slack.send_message(f"Registered SWH → {self.swh_price}")
         if swl_price is not None:
             self.swl_price = swl_price
             self.logger.info(f"Registered SWL → {self.swl_price}")
+            await slack.send_message(f"Registered SWL → {self.swl_price}")
 
         if not self._monitor_started:
             self._monitor_started = True

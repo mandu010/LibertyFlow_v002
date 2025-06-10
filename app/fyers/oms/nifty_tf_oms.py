@@ -110,7 +110,7 @@ class Nifty_OMS:
                 if symbol is None or symbol == "":
                     raise Exception("Symbol not found in .env file")
             except Exception as e:
-                self.logger.error("place_nifty_order_new(): Failed to Get Symbol from .env file. Error: {e}")
+                self.logger.error(f"place_nifty_order_new(): Failed to Get Symbol from .env file. Error: {e}")
                 symbol = await self.get_symbol(side)
             #Debugging settings
             # symbol='NSE:SBIN-EQ' # Comment this later
