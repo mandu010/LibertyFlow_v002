@@ -115,28 +115,29 @@ class LibertyTrigger():
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')                        
             self.logger.info(f"range_break(): Checking")
 
-            if df.iloc[-2]['high'] > range['high'] or df.iloc[-2]['low'] < range['low']:
-                self.logger.info(f"range_break(): Triggered")
-                trigger_time = str(df['timestamp'].iloc[0].time())
-                sql = f'''UPDATE nifty.trigger_status 
-                SET "range" = TRUE, "trigger_index" = 0, "trigger_time" = '{trigger_time}', "swhTime" = '{trigger_time}', "swlTime" = '{trigger_time}'
-                WHERE "date" = CURRENT_DATE '''
-                sql = f"""
-                        UPDATE nifty.trigger_status
-                        SET "range" = TRUE,
-                            "trigger_index" = 0,
-                            "trigger_time" = '{trigger_time}',
-                            "swhTime" = '{trigger_time}',
-                            "swlTime" = '{trigger_time}'
-                        WHERE "date" = CURRENT_DATE;
-                        """.strip()
-                await self.db.execute_query(sql)
-                asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
-                #asyncio.create_task(slack.send_message(f"range_break(): Triggered."))
-                await slack.send_message(f"range_break(): Triggered.")
-                self.logger.info(f"range_break(): Triggered.")                    
-                return True
-            else:
+            for i,r in df.iterrows():
+                if df.iloc[i]['high'] > range['high'] or df.iloc[i]['low'] < range['low']:
+                    self.logger.info(f"range_break(): Triggered")
+                    trigger_time = str(df['timestamp'].iloc[i].time())
+                    sql = f'''UPDATE nifty.trigger_status 
+                    SET "range" = TRUE, "trigger_index" = 0, "trigger_time" = '{trigger_time}', "swhTime" = '{trigger_time}', "swlTime" = '{trigger_time}'
+                    WHERE "date" = CURRENT_DATE '''
+                    sql = f"""
+                            UPDATE nifty.trigger_status
+                            SET "range" = TRUE,
+                                "trigger_index" = '{i}',
+                                "trigger_time" = '{trigger_time}',
+                                "swhTime" = '{trigger_time}',
+                                "swlTime" = '{trigger_time}'
+                            WHERE "date" = CURRENT_DATE;
+                            """.strip()
+                    await self.db.execute_query(sql)
+                    asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
+                    await slack.send_message(f"range_break(): Triggered.")
+                    self.logger.info(f"range_break(): Triggered.")                    
+                    return True
+                
+                ### If not returned from loop, then returning False
                 self.logger.info(f"range_break(): Not Triggered.")                    
                 sql = '''UPDATE nifty.trigger_status 
                 SET range = FALSE
