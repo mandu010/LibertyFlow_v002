@@ -431,7 +431,8 @@ class LibertyBreakout:
                         if maxRR >= 3.5:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.75)) # Taking 1.75R
                             await self.update_sl_price(new_sl_price)
-                                                        
+
+                    self.logger.info(f"maxRR: {maxRR}, current RR: {curr_RR}, entry price: {entry_price}, new SL price: {new_sl_price}")                                                        
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
 
@@ -507,7 +508,8 @@ class LibertyBreakout:
                         if maxRR >= 3.5:
                             new_sl_price = math.ceil(entry_price - (initial_sl_points * 1.75)) # Taking 1.75R
                             await self.update_sl_price(new_sl_price)
-                                                        
+
+                    self.logger.info(f"maxRR: {maxRR}, current RR: {curr_RR}, entry price: {entry_price}, new SL price: {new_sl_price}")                                                        
                     next_check = await self.trigger.get_next_1min_interval()
                     await self.trigger.wait_until_time(next_check)
 
