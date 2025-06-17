@@ -142,7 +142,7 @@ class LibertyFlow:
 
             ### Waiting for SL or Market Close
             try:
-                end_time = time(15, 10)
+                end_time = time(15, 12)
                 while datetime.now().time() < end_time:
                     # Check if SL was hit
                     with self.breakout.sl_lock:

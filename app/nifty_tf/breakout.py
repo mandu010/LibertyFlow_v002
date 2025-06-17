@@ -377,7 +377,7 @@ class LibertyBreakout:
                 initial_sl_points = round(abs(initial_sl_price - entry_price))
 
             maxRR = 0
-            while datetime.now().time() < time(15, 10):
+            while datetime.now().time() < time(15, 12):
 
                 # Until 1:30 PM Trail
                 while datetime.now().time() < time(13, 30):
@@ -500,7 +500,7 @@ class LibertyBreakout:
 
                 # 2:30 - 3:08 PM Trail
                 maxRR = 0 # Resetting max RR
-                while datetime.now().time() > time(14, 30) and datetime.now().time() < time(15, 8):
+                while datetime.now().time() > time(14, 30) and datetime.now().time() < time(15, 12):
                     with self.sl_lock:
                         if self.sl_state["exit_executed"]:
                             self.logger.info("SL hit during trailing, stopping trailing logic")
