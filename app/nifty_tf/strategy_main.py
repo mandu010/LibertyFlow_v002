@@ -239,20 +239,6 @@ class LibertyFlow:
             """Monitor the trading session for completion conditions"""
             try:
                 while True:
-                    # Check if it's past market close time
-                    # if datetime.now().time() >= time(15, 30):  # 3:30 PM
-                    #     self.logger.info("Market closed, stopping all processes")
-                    #     await self.breakout.stop()
-                        
-                    #     # Update status in DB
-                    #     sqlStatus = '''UPDATE nifty.status 
-                    #         SET status = 'Exited - Market Close'
-                    #         WHERE date = CURRENT_DATE '''
-                    #     await self.db.execute_query(sqlStatus)
-                        
-                    #     self.events["trading_complete"].set()
-                    #     break
-                    
                     # Check if both swing formations have completed
                     both_swings_formed = self.events["swh_formed"].is_set() and self.events["swl_formed"].is_set()
                     

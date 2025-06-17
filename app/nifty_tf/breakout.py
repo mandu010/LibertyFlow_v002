@@ -53,6 +53,10 @@ class LibertyBreakout:
 
         # OMS
         self.place_order = Nifty_OMS(db, fyers)
+
+        # Add last known LTP tracking
+        self.last_ltp = None
+        self.threshold_lock = threading.Lock()        
         
 
     async def monitor_breakouts(self, *, swh_price=None, swl_price=None):
@@ -61,14 +65,15 @@ class LibertyBreakout:
         background WebSocket thread that watches both SWH and SWL.
         Subsequent calls just update the thresholds immediately.
         """
-        if swh_price is not None:
-            self.swh_price = swh_price
-            self.logger.info(f"Registered SWH → {self.swh_price}")
-            await slack.send_message(f"Registered SWH → {self.swh_price}")
-        if swl_price is not None:
-            self.swl_price = swl_price
-            self.logger.info(f"Registered SWL → {self.swl_price}")
-            await slack.send_message(f"Registered SWL → {self.swl_price}")
+        with self.threshold_lock:        
+            if swh_price is not None:
+                self.swh_price = swh_price
+                self.logger.info(f"Registered SWH → {self.swh_price}")
+                await slack.send_message(f"Registered SWH → {self.swh_price}")
+            if swl_price is not None:
+                self.swl_price = swl_price
+                self.logger.info(f"Registered SWL → {self.swl_price}")
+                await slack.send_message(f"Registered SWL → {self.swl_price}")
 
         if not self._monitor_started:
             self._monitor_started = True
@@ -104,6 +109,44 @@ class LibertyBreakout:
         self.logger.info("_watch_for_breakout(): Breakout watcher started")
         await slack.send_message(f"_watch_for_breakout(): Breakout watcher started")
 
+    # def _run_ws_thread(self, done_event: asyncio.Event, loop: asyncio.AbstractEventLoop): ### Old Method
+    #     """
+    #     Background thread: subscribes to SymbolUpdate and
+    #     calls done_event.set() thread‐safely upon breakout.
+    #     """
+    #     def on_message(msg):
+            
+    #         if not isinstance(msg, dict) or msg.get("type") != "sf":
+    #             return
+
+    #         ltp = msg.get("ltp")
+    #         if self.state["triggered"]:
+    #             return
+
+    #         # print(ltp)
+    #         # check Buy
+    #         if self.swh_price is not None and ltp > self.swh_price:
+    #             direction, price = "Buy", ltp
+    #         # check Sell
+    #         elif self.swl_price is not None and ltp < self.swl_price:
+    #             direction, price = "Sell", ltp
+    #         else:
+    #             return
+
+    #         self.logger.info(f"Breakout → {direction} at {price}")
+    #         self.state.update({
+    #             "triggered": True,
+    #             "direction": direction,
+    #             "price": price
+    #         })
+    #         try:
+    #             ws.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
+    #         except Exception as e:
+    #             self.logger.error(f"Error unsubscribing: {e}")
+
+    #         # signal the asyncio waiter
+    #         loop.call_soon_threadsafe(done_event.set)
+
     def _run_ws_thread(self, done_event: asyncio.Event, loop: asyncio.AbstractEventLoop):
         """
         Background thread: subscribes to SymbolUpdate and
@@ -118,15 +161,34 @@ class LibertyBreakout:
             if self.state["triggered"]:
                 return
 
-            # print(ltp)
-            # check Buy
-            if self.swh_price is not None and ltp > self.swh_price:
-                direction, price = "Buy", ltp
-            # check Sell
-            elif self.swl_price is not None and ltp < self.swl_price:
-                direction, price = "Sell", ltp
-            else:
-                return
+            with self.threshold_lock:
+                # Track previous LTP for crossing detection
+                prev_ltp = self.last_ltp
+                self.last_ltp = ltp
+                
+                # Skip if this is the first LTP or no thresholds set
+                if prev_ltp is None:
+                    return
+                
+                # Check for actual threshold crossing (not just being beyond threshold)
+                direction = None
+                price = None
+                
+                # Buy signal: LTP crosses above SWH
+                if self.swh_price is not None:
+                    if prev_ltp <= self.swh_price and ltp > self.swh_price:
+                        direction, price = "Buy", ltp
+                        self.logger.info(f"SWH crossed upward: {prev_ltp} → {ltp} (threshold: {self.swh_price})")
+                
+                # Sell signal: LTP crosses below SWL
+                if self.swl_price is not None and direction is None:
+                    if prev_ltp >= self.swl_price and ltp < self.swl_price:
+                        direction, price = "Sell", ltp
+                        self.logger.info(f"SWL crossed downward: {prev_ltp} → {ltp} (threshold: {self.swl_price})")
+                
+                # No crossing detected
+                if direction is None:
+                    return
 
             self.logger.info(f"Breakout → {direction} at {price}")
             self.state.update({
