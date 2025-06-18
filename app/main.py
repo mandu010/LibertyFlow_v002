@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import traceback
+from datetime import date
 
 from app.utils.logging import get_logger
 import signal
@@ -45,6 +46,31 @@ async def shutdown(signal_name=None):
     
     logger.info("Shutdown complete")
 
+def check_holiday():
+    """
+    Check if today's date is a holiday.
+    Returns 0 if today matches any of the specified holiday dates.
+    """
+    # List of holiday dates
+    holiday_dates = [
+        date(2025, 2, 26),   # 26-Feb-2025
+        date(2025, 3, 14),   # 14-Mar-2025
+        date(2025, 3, 31),   # 31-Mar-2025
+        date(2025, 4, 10),   # 10-Apr-2025
+        date(2025, 4, 14),   # 14-Apr-2025
+        date(2025, 4, 18),   # 18-Apr-2025
+        date(2025, 5, 1),    # 01-May-2025
+        date(2025, 8, 15),   # 15-Aug-2025
+        date(2025, 8, 27),   # 27-Aug-2025
+        date(2025, 10, 2),   # 02-Oct-2025
+        date(2025, 10, 21),  # 21-Oct-2025
+        date(2025, 10, 22),  # 22-Oct-2025
+        date(2025, 11, 5),   # 05-Nov-2025
+        date(2025, 12, 25),  # 25-Dec-2025
+    ]
+    today = date.today()
+    return today in holiday_dates    
+
 async def main():
     # Setup logging first
     global strategy
@@ -53,6 +79,10 @@ async def main():
     asyncio.create_task(slack.send_message("Starting Liberty Flow..."))
     
     try:
+        if check_holiday():
+            logger.info("Today is a holiday. Skipping trading session.")
+            await slack.send_message("Today is a holiday.")
+            return 0
         # Initialize database connection
         logger.info("Connecting to database...")
         await db.connect()
