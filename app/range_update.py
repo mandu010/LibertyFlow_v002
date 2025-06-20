@@ -15,7 +15,7 @@ from app.slack import slack
 
 logger = get_logger("RANGE_UPDATE")
 
-def check_holiday():
+def today_holiday():
     """
     Check if today's date is a holiday.
     Returns 0 if today matches any of the specified holiday dates.
@@ -47,7 +47,7 @@ async def main():
     asyncio.create_task(slack.send_message("Updating Range for the Day"))
     
     try:
-        if check_holiday():
+        if today_holiday():
             logger.info("Today is a holiday. Skipping trading session.")
             await slack.send_message("Today is a holiday.")
             return 0        

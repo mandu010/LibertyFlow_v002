@@ -122,7 +122,7 @@ class LibertyFlow:
                     self.logger.error("Order placement failed - no order details returned.")
                     await slack.send_message("Order placement failed.\nCheck ASAP or Trail manually.")                              
                     return 1
-            else:
+            if direction == "Sell":
                 self.logger.info("direction: Sell")
                 asyncio.create_task(slack.send_message("Order Placed: Short"))
                 symbol, orderID = await self.place_order.place_nifty_order_new(side="Sell")

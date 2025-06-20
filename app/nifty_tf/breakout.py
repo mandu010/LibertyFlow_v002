@@ -91,6 +91,12 @@ class LibertyBreakout:
             raise RuntimeError("Breakout watcher not started")
         self.logger.info("Awaiting breakout event …")
         await self._done_event.wait()
+
+        # SIMPLE CHECK: Just ensure we have direction and price
+        if self.state["direction"] is None or self.state["price"] is None:
+            self.logger.error(f"Breakout signaled but state incomplete: {self.state}")
+            raise RuntimeError(f"Incomplete breakout state: {self.state}")        
+        
         self.logger.info("Breakout event received")
         return self.state  # so caller can inspect direction & price
 
@@ -108,44 +114,6 @@ class LibertyBreakout:
         thread.start()
         self.logger.info("_watch_for_breakout(): Breakout watcher started")
         await slack.send_message(f"_watch_for_breakout(): Breakout watcher started")
-
-    # def _run_ws_thread(self, done_event: asyncio.Event, loop: asyncio.AbstractEventLoop): ### Old Method
-    #     """
-    #     Background thread: subscribes to SymbolUpdate and
-    #     calls done_event.set() thread‐safely upon breakout.
-    #     """
-    #     def on_message(msg):
-            
-    #         if not isinstance(msg, dict) or msg.get("type") != "sf":
-    #             return
-
-    #         ltp = msg.get("ltp")
-    #         if self.state["triggered"]:
-    #             return
-
-    #         # print(ltp)
-    #         # check Buy
-    #         if self.swh_price is not None and ltp > self.swh_price:
-    #             direction, price = "Buy", ltp
-    #         # check Sell
-    #         elif self.swl_price is not None and ltp < self.swl_price:
-    #             direction, price = "Sell", ltp
-    #         else:
-    #             return
-
-    #         self.logger.info(f"Breakout → {direction} at {price}")
-    #         self.state.update({
-    #             "triggered": True,
-    #             "direction": direction,
-    #             "price": price
-    #         })
-    #         try:
-    #             ws.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
-    #         except Exception as e:
-    #             self.logger.error(f"Error unsubscribing: {e}")
-
-    #         # signal the asyncio waiter
-    #         loop.call_soon_threadsafe(done_event.set)
 
     def _run_ws_thread(self, done_event: asyncio.Event, loop: asyncio.AbstractEventLoop):
         """
@@ -176,13 +144,13 @@ class LibertyBreakout:
                 
                 # Buy signal: LTP crosses above SWH
                 if self.swh_price is not None:
-                    if prev_ltp <= self.swh_price and ltp > self.swh_price:
+                    if prev_ltp < self.swh_price and ltp >= self.swh_price:
                         direction, price = "Buy", ltp
                         self.logger.info(f"SWH crossed upward: {prev_ltp} → {ltp} (threshold: {self.swh_price})")
                 
                 # Sell signal: LTP crosses below SWL
                 if self.swl_price is not None and direction is None:
-                    if prev_ltp >= self.swl_price and ltp < self.swl_price:
+                    if prev_ltp > self.swl_price and ltp <= self.swl_price:
                         direction, price = "Sell", ltp
                         self.logger.info(f"SWL crossed downward: {prev_ltp} → {ltp} (threshold: {self.swl_price})")
                 
@@ -191,11 +159,12 @@ class LibertyBreakout:
                     return
 
             self.logger.info(f"Breakout → {direction} at {price}")
-            self.state.update({
-                "triggered": True,
-                "direction": direction,
-                "price": price
-            })
+            
+            # FIXED: Update state atomically and only signal if complete
+            self.state["triggered"] = True
+            self.state["direction"] = direction
+            self.state["price"] = price
+
             try:
                 ws.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
             except Exception as e:
@@ -206,7 +175,6 @@ class LibertyBreakout:
 
         def on_error(err):
             self.logger.error(f"WebSocket error: {err}")
-            loop.call_soon_threadsafe(done_event.set)
 
         def on_close(msg):
             self.logger.info("WebSocket closed")

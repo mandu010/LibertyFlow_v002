@@ -46,7 +46,7 @@ async def shutdown(signal_name=None):
     
     logger.info("Shutdown complete")
 
-def check_holiday():
+def today_holiday():
     """
     Check if today's date is a holiday.
     Returns 0 if today matches any of the specified holiday dates.
@@ -79,7 +79,7 @@ async def main():
     asyncio.create_task(slack.send_message("Starting Liberty Flow..."))
     
     try:
-        if check_holiday():
+        if today_holiday():
             logger.info("Today is a holiday. Skipping trading session.")
             await slack.send_message("Today is a holiday.")
             return 0
