@@ -156,8 +156,14 @@ class LibertyTrigger():
         # Check if we're in the valid time window
         if now < time(9, 25):
             # Too early - wait until 9:25 to start
-            self.logger.info("Waiting till 9.25, if triggered before it.")
+            self.logger.info("check_triggers_until_cutoff(): Waiting till 9.25, if triggered before it.")
             await self.wait_until_start_time(time(9, 25))
+            # Check if trigger condition is met
+            is_triggered = await self.range_break(range_val)
+            if is_triggered:
+                print("Trigger condition met!")
+                self.logger.info("check_triggers_until_cutoff(): Trigger condition met!")
+                return True            
         elif now >= time(12, 25):
             # Too late - past cutoff time
             print("Already past cutoff time of 12:25 PM. Strategy will not start.")
@@ -180,6 +186,7 @@ class LibertyTrigger():
             # Hard stop at 12:25 PM
             if now >= time(12, 25):
                 print("Reached cutoff time 12:25 PM. Stopping trigger checks.")
+                self.logger.info("check_triggers_until_cutoff(): Reached cutoff time 12:25 PM. Stopping trigger checks.")
                 return False
                 
             # Wait for next 5-minute interval
@@ -188,9 +195,9 @@ class LibertyTrigger():
             
             # Check if trigger condition is met
             is_triggered = await self.range_break(range_val)
-            
             if is_triggered:
                 print("Trigger condition met!")
+                self.logger.info("check_triggers_until_cutoff(): Trigger condition met!")
                 return True
     
     async def wait_until_start_time(self, target_time):

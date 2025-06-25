@@ -93,9 +93,9 @@ class LibertyBreakout:
         await self._done_event.wait()
 
         # SIMPLE CHECK: Just ensure we have direction and price
-        if self.state["direction"] is None or self.state["price"] is None:
-            self.logger.error(f"Breakout signaled but state incomplete: {self.state}")
-            raise RuntimeError(f"Incomplete breakout state: {self.state}")        
+        # if self.state["direction"] is None or self.state["price"] is None:
+        #     self.logger.error(f"Breakout signaled but state incomplete: {self.state}")
+        #     raise RuntimeError(f"Incomplete breakout state: {self.state}")        
         
         self.logger.info("Breakout event received")
         return self.state  # so caller can inspect direction & price
@@ -131,12 +131,12 @@ class LibertyBreakout:
 
             with self.threshold_lock:
                 # Track previous LTP for crossing detection
-                prev_ltp = self.last_ltp
-                self.last_ltp = ltp
+                # prev_ltp = self.last_ltp
+                # self.last_ltp = ltp
                 
-                # Skip if this is the first LTP or no thresholds set
-                if prev_ltp is None:
-                    return
+                # # Skip if this is the first LTP or no thresholds set
+                # if prev_ltp is None:
+                #     return
                 
                 # Check for actual threshold crossing (not just being beyond threshold)
                 direction = None
@@ -144,15 +144,19 @@ class LibertyBreakout:
                 
                 # Buy signal: LTP crosses above SWH
                 if self.swh_price is not None:
-                    if prev_ltp < self.swh_price and ltp >= self.swh_price:
+                    # if prev_ltp < self.swh_price and ltp >= self.swh_price:
+                    if ltp >= self.swh_price:
                         direction, price = "Buy", ltp
-                        self.logger.info(f"SWH crossed upward: {prev_ltp} → {ltp} (threshold: {self.swh_price})")
+                        self.logger.info(f"SWH crossed upward: {ltp} (threshold: {self.swh_price})")
+                        # self.logger.info(f"SWH crossed upward: {prev_ltp} → {ltp} (threshold: {self.swh_price})")
                 
                 # Sell signal: LTP crosses below SWL
                 if self.swl_price is not None and direction is None:
-                    if prev_ltp > self.swl_price and ltp <= self.swl_price:
+                    # if prev_ltp > self.swl_price and ltp <= self.swl_price:
+                    if ltp <= self.swl_price:
                         direction, price = "Sell", ltp
-                        self.logger.info(f"SWL crossed downward: {prev_ltp} → {ltp} (threshold: {self.swl_price})")
+                        # self.logger.info(f"SWL crossed downward: {prev_ltp} → {ltp} (threshold: {self.swl_price})")
+                        self.logger.info(f"SWL crossed downward: {ltp} (threshold: {self.swl_price})")
                 
                 # No crossing detected
                 if direction is None:

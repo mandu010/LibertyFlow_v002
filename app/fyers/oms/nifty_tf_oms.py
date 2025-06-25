@@ -101,6 +101,7 @@ class Nifty_OMS:
         # This returns symbol and order date time, both in string
         try:
             try:
+                from app.config import settings
                 dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
                 load_dotenv(dotenv_path)
                 if side == "Buy":
@@ -449,7 +450,6 @@ class Nifty_OMS:
 
     async def set_option_symbol(self,side,ltp,strike_interval=50):
         try:
-            print(f"set_option_symbol(): ltp:{ltp}",type(ltp))
             self.logger.info(f"set_option_symbol(): LTP: {ltp}")
             if ltp is not None:
                 ATM =  round(ltp/strike_interval)*strike_interval
@@ -477,6 +477,7 @@ class Nifty_OMS:
                     set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', symbol)
                 else:
                     set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', symbol)
+                self.logger.info(f"set_option_symbol(): Set {side} Symbol: {symbol}")                    
                 return True
             else:
                 symbol = str(df_filtered.iloc[1][9])

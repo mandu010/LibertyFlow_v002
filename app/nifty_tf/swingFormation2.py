@@ -66,7 +66,10 @@ class LibertySwing():
                 if len(filtered_df_data) >= 7: 
                     if referenceCandle.iloc[-1]['high'] >= filtered_df_data.iloc[:-1]['high'].max():
                         self.logger.info("SWH(): Swing High Found")
-                        swhPrice = math.ceil(referenceCandle.iloc[-1]['high'])              
+                        if referenceCandle.iloc[-1]['high'] == math.ceil(referenceCandle.iloc[-1]['high']):
+                            swhPrice = math.ceil(referenceCandle.iloc[-1]['high']) + 1
+                        else:
+                            swhPrice = math.ceil(referenceCandle.iloc[-1]['high'])
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         
                         ### Updating DB w/ SWH Price and Time
@@ -131,7 +134,10 @@ class LibertySwing():
                 if len(filtered_df_data) >= 7: 
                     if referenceCandle.iloc[-1]['low'] <= filtered_df_data.iloc[:-1]['low'].min():
                         self.logger.info("SWL(): Swing Low Found")
-                        swlPrice = math.floor(referenceCandle.iloc[-1]['low'])              
+                        if referenceCandle.iloc[-1]['low'] == math.floor(referenceCandle.iloc[-1]['low']):
+                            swlPrice = math.floor(referenceCandle.iloc[-1]['low']) - 1
+                        else:
+                            swlPrice = math.floor(referenceCandle.iloc[-1]['low'])
                         referenceCandle['timestamp'] = pd.to_datetime(referenceCandle['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         ### Updating DB w/ SWL Price and Time
                         sqlTrue = f'''UPDATE nifty.trigger_status 
