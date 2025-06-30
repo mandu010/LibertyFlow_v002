@@ -110,8 +110,22 @@ class LibertyFlow:
                 )
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout"))
-            state = await self.breakout.wait_for_breakout()
-            direction, price = state["direction"], state["price"]
+
+            # Timeout Timing for Breakout
+            breakout_timeout = time(13, 0)
+            try:
+                # state = await self.breakout.wait_for_breakout()
+                state = await asyncio.wait_for(
+                    self.breakout.wait_for_breakout(), 
+                    timeout=self._get_seconds_until_time(breakout_timeout)
+                )
+                direction, price = state["direction"], state["price"]
+            except asyncio.TimeoutError:
+                self.logger.info("Breakout timeout reached at 13:00 -> Exit")
+                await slack.send_message("Breakout timeout reached at 13:00 -> Exit")
+                await self.db.update_status(status='Exited - No Breakout by 13:00')
+                return 1
+
 
             if direction == "Buy":
                 self.logger.info("direction: Buy")
@@ -173,6 +187,17 @@ class LibertyFlow:
                         task.cancel()
             except Exception as db_err:
                 self.logger.error(f"Error closing database: {db_err}")                        
+
+    def _get_seconds_until_time(self, target_time):
+        """Calculate seconds until target time today"""
+        now = datetime.now()
+        target_datetime = datetime.combine(now.date(), target_time)
+        
+        # If target time has already passed today, return 0
+        if target_datetime <= now:
+            return 0
+            
+        return (target_datetime - now).total_seconds()
 
     async def run_swh_formation(self, swing_instance):
         """Run SWH formation and immediately notify breakout when it forms"""
@@ -292,11 +317,3 @@ class LibertyFlow:
             except Exception as e:
                 self.logger.error(f"Error monitoring trading session: {e}", exc_info=True)
                 self.events["trading_complete"].set()  # Set the event to prevent hanging
-
-    async def monitor_trading_session_temp(self):
-        try:
-            while True:
-                if datetime.now().time() >= time(13, 00): 
-                    asyncio.create_task(slack.send_message("Stop Algo."))
-        except Exception as e:
-            asyncio.create_task(slack.send_message("Stop Algo."))
