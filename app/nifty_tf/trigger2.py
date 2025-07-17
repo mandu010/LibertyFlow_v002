@@ -143,7 +143,7 @@ class LibertyTrigger():
                 SET range = FALSE
                 WHERE date = CURRENT_DATE '''                    
                 await self.db.execute_query(sql)
-                return False
+            return False
                     
         except Exception as e:
             self.logger.error(f"range_break(): Error fetching min1 data: {e}", exc_info=True)
