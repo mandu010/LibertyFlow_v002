@@ -39,16 +39,16 @@ class LibertyTrigger():
             change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
             asyncio.create_task(slack.send_message(f"Percent Change is {change}"))
             if change >= 0.4:
-                self.logger.info(f"pct_trigger(): Triggered")
+                self.logger.info(f"pct_trigger(): Triggered. Percent Change is {change}")
                 await self.db.execute_query(sqlTrue) 
                 await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
                 return True
             elif change <= -0.4:
-                    self.logger.info(f"pct_trigger(): Triggered")
+                    self.logger.info(f"pct_trigger(): Triggered. Percent Change is {change}")
                     await self.db.execute_query(sqlTrue)                        
                     return True
             else:
-                self.logger.info(f"pct_trigger(): Not Triggered. Go to ATR Trigger")
+                self.logger.info(f"pct_trigger(): Not Triggered. Go to ATR Trigger. Percent Change is {change}")
                 await self.db.execute_query(sqlFalse)                  
                 return False
       
