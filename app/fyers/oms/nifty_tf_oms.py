@@ -448,7 +448,7 @@ class Nifty_OMS:
             print(f"Error: {e}")
             self.logger.error(f"exit_position(): {e}")                          
 
-    async def set_option_symbol(self,side,ltp,strike_interval=50):
+    async def set_option_symbol_old(self,side,ltp,strike_interval=50): ### Old one simply stepping 1 ATM down
         try:
             self.logger.info(f"set_option_symbol(): LTP: {ltp}")
             if ltp is not None:
@@ -489,4 +489,55 @@ class Nifty_OMS:
                 return True
         except Exception as e:
             self.logger.error(f"set_option_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")
-            return None            
+            return None   
+                 
+    async def set_option_symbol(self,side,ltp,strike_interval=50):
+        strike_multiplier=1
+        requiredPrice = 100
+        price = 0
+        while price < requiredPrice:        
+            try:
+                self.logger.info(f"set_option_symbol(): LTP: {ltp}")
+                if ltp is not None:
+                    ATM =  round(ltp/strike_interval)*strike_interval
+                    ### Stepping 1 Down in ATM strike
+                    if side == "Buy":
+                        ATM = ATM - (50 * strike_multiplier)
+                    else:
+                        ATM = ATM + (50 * strike_multiplier)
+                    self.logger.info(f"set_option_symbol(): ATM: {ATM} strike_multiplier: {strike_multiplier}")
+                else:
+                    raise Exception
+                # Master Sheet
+                url = 'https://public.fyers.in/sym_details/NSE_FO.csv'
+                df = pd.read_csv(url, header=None)
+                if side == "Buy":
+                    optionType="CE"
+                else:
+                    optionType="PE"
+                df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
+                expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
+                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                load_dotenv(dotenv_path)            
+                if expiry_date != datetime.today().date():
+                    symbol = str(df_filtered.iloc[0][9])
+                    if side == "Buy":
+                        set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', symbol)
+                    else:
+                        set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', symbol)
+                    self.logger.info(f"set_option_symbol(): Set {side} Symbol: {symbol}")                    
+                else:
+                    symbol = str(df_filtered.iloc[1][9])
+                    if side == "Buy":
+                        set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', symbol)
+                    else:
+                        set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', symbol)                
+                    self.logger.info(f"set_option_symbol(): Set {side} Symbol: {symbol}")
+                price = (await self.LibertyMarketData.fetch_quick_quote(symbol))['lp']
+                if price < requiredPrice:
+                    strike_multiplier += 1
+                self.logger.info(f"set_option_symbol(): Symbol: {symbol} LTP: {price}")                    
+            except Exception as e:
+                self.logger.error(f"set_option_symbol(): Error Getting Symbol for {side} {ATM}. Error: {e}")
+                return None         
+        return True   
