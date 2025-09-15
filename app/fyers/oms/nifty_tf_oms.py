@@ -294,6 +294,7 @@ class Nifty_OMS:
     async def exit_position(self):
         try:
             self.logger.info(f"exit_position(): Starting to Exit Postions")
+            # Getting all open INTRADAY positions            
             openPositions=[]
             positions = self.fyers.positions()
             for position in positions['netPositions']:
@@ -301,14 +302,14 @@ class Nifty_OMS:
                     openPositions.append(position)
             self.logger.info(f"exit_position(): Found {len(openPositions)} Open Positions")
             for exitPosition in openPositions:
-                print(exitPosition)
+                self.logger.info(f"exitPosition: {exitPosition}")
                 symbol = exitPosition['symbol']
                 try:
                     positionQty = exitPosition['qty']
                 except:
                     positionQty = exitPosition['netQty']
                 initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
-                print(f"Initial Quote: {initial_quote}")
+                self.logger.info(f"Initial Quote: {initial_quote}")
                 bid_price = initial_quote['bid']
                 limit_price = self.round_to_nearest_half(bid_price - bid_price * self.limit_price_pct) # Setting Limit Price at 0.5% of ask price
                 counter = 1
@@ -324,32 +325,31 @@ class Nifty_OMS:
                 }
                 self.logger.info(f"Data sending to fyers: {data}")
                 response = self.fyers.place_order(data)
-                print(response)
                 if response['s'] == "ok":
                     order_id = response['id']
                 else:
                     self.logger.error("exit_position(): Failed to Place Exit Order")
                     await slack.send_message(f"exit_position(): Failed to Place Exit Order \n Exit manually for {symbol} Response: {response}")
-                    #return False
                     continue ### Going to next position
                 
                 self.logger.info(f"Exit Order Placed. Response:{response}\n")
 
                 await asyncio.sleep(1.5)  # Waiting for a second for order to process, maybe will need to increase later
                 placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
-                print(f"exit_position():{placed_order_status}, {type(placed_order_status)}")
+                self.logger.info(f"exit_position():{placed_order_status}, {type(placed_order_status)}")
                 if placed_order_status == 2:
                     await slack.send_message(f"exit_position(): Exited Successfully for {symbol} Response: {response}")
-                    return True
+                    # return True
                 else:
                     while counter < 6:
                         counter += 1
                         placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
                         if placed_order_status == 2:
                             await slack.send_message(f"exit_position(): Exited Successfully for {symbol}.")
-                            return True                     
+                            # return True                     
+                            continue
                         fresh_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
-                        print(f"Fresh Quote: {fresh_quote}")
+                        self.logger.info(f"Fresh Quote: {fresh_quote}")
                         bid_price = fresh_quote['bid']            
                         limit_price = self.round_to_nearest_half(bid_price - bid_price * (self.limit_price_pct * counter)) ### Exponential Backoff
                         data = {
@@ -369,9 +369,9 @@ class Nifty_OMS:
                     placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
                     if placed_order_status == 2:
                         await slack.send_message(f"exit_position(): Exited At Market Price Successfully for {symbol}.")
-                        return True            
             if len(openPositions) == 0:
                 await slack.send_message(f"exit_position(): No Open Positions to Exit")
+            return True                            
         except Exception as e:
             print(f"Error: {e}")
             self.logger.error(f"exit_position(): {e}")                

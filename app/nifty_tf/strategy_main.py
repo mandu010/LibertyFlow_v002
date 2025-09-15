@@ -202,7 +202,7 @@ class LibertyFlow:
     async def run_swh_formation(self, swing_instance):
         """Run SWH formation and immediately notify breakout when it forms"""
         try:
-            self.logger.info("Starting Swing High formation monitoring")
+            self.logger.info("run_swh_formation(): Starting Swing High formation monitoring")
             result = await swing_instance.SWH()
             if result:
                 # Get the SWH value from DB
@@ -213,20 +213,20 @@ class LibertyFlow:
                     self.swh_value = result[0]["swhPrice"]
                 
                 if self.swh_value:
-                    self.logger.info(f"SWH formed with value: {self.swh_value}, notifying breakout system")
+                    self.logger.info(f"run_swh_formation(): SWH formed with value: {self.swh_value}, notifying breakout system")
                     
-                    asyncio.create_task(slack.send_message("Starting Breakout Monitor for SWH"))
+                    asyncio.create_task(slack.send_message("run_swh_formation(): Starting Breakout Monitor for SWH"))
                     # Set event to notify other components
                     self.events["swh_formed"].set()                  
 
                     # Start or update breakout monitor with SWH value
                     await self.breakout.monitor_breakouts(swh_price=self.swh_value)   
             else:
-                self.logger.info("SWH formation failed or timed out")
+                self.logger.info("run_swh_formation(): SWH formation failed or timed out")
                 await slack.send_message("run_swh_formation(): SWH formation failed or timed out")
                 
         except Exception as e:
-            self.logger.error(f"Error in SWH formation: {e}", exc_info=True)
+            self.logger.error(f"run_swh_formation(): Error in SWH formation: {e}", exc_info=True)
             await slack.send_message(f"run_swh_formation(): Error in SWH formation: {e}")
 
     async def run_swl_formation(self, swing_instance):
@@ -241,23 +241,23 @@ class LibertyFlow:
                 sql = 'SELECT "swlPrice" FROM nifty.trigger_status WHERE date = CURRENT_DATE'
                 result = await self.db.fetch_query(sql)
                 if result is not None:
-                    self.logger.info(f"SWL(): {result}")
+                    self.logger.info(f"run_swl_formation(): {result}")
                     self.swl_value = result[0]["swlPrice"]
 
                 if self.swl_value:
-                    self.logger.info(f"SWL formed with value: {self.swl_value}, notifying breakout system")
+                    self.logger.info(f"run_swl_formation(): SWL formed with value: {self.swl_value}, notifying breakout system")
                     
                     # Set event to notify other components
                     self.events["swl_formed"].set()
-                    asyncio.create_task(slack.send_message("Starting Breakout Monitor for SWL"))
+                    asyncio.create_task(slack.send_message("run_swl_formation(): Starting Breakout Monitor for SWL"))
                     # Start or update breakout monitor with SWL value
                     await self.breakout.monitor_breakouts(swl_price=self.swl_value)
             else:
-                self.logger.info("SWL formation failed or timed out")
+                self.logger.info("run_swl_formation(): SWL formation failed or timed out")
                 await slack.send_message("run_swl_formation(): SWL formation failed or timed out")
                 
         except Exception as e:
-            self.logger.error(f"Error in SWL formation: {e}", exc_info=True)
+            self.logger.error(f"run_swl_formation(): Error in SWL formation: {e}", exc_info=True)
             await slack.send_message(f"run_swl_formation(): Error in SWL formation: {e}")
 
     async def monitor_trading_session(self):
