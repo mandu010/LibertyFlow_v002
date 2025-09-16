@@ -13,12 +13,13 @@ from dotenv import load_dotenv, set_key, find_dotenv
 
 def main():
     # Load environment variables
-    dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+    #dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+    dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
     if not dotenv_path:
         print("Error: .env file not found at /mnt/LibertyFlow/LibertyFlow_v002/.env")
         sys.exit(1)
     
-    load_dotenv(dotenv_path)
+    load_dotenv(dotenv_path, override=True)
     
     # Get required credentials from environment variables
     client_id = os.getenv("FYERS_APP_ID")

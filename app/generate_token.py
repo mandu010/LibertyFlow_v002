@@ -101,8 +101,9 @@ async def generate_access_token():
     """Generate Fyers access token"""
     try:
         # Load environment variables
-        dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
-        load_dotenv(dotenv_path)
+        #dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+        dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
+        load_dotenv(dotenv_path, override=True)
         
         # Get configuration
         APP_ID_FULL = settings.fyers.CLIENT_ID

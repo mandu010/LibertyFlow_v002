@@ -102,8 +102,9 @@ class Nifty_OMS:
         try:
             try:
                 from app.config import settings
-                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
-                load_dotenv(dotenv_path)
+                # dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
+                load_dotenv(dotenv_path, override=True)
                 if side == "Buy":
                     symbol = os.getenv("NIFTY_BUY_SYMBOL")
                 else:
@@ -469,8 +470,9 @@ class Nifty_OMS:
                 optionType="PE"
             df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
             expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
-            dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
-            load_dotenv(dotenv_path)            
+            # dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+            dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
+            load_dotenv(dotenv_path, override=True)            
             if expiry_date != datetime.today().date():
                 symbol = str(df_filtered.iloc[0][9])
                 if side == "Buy":
@@ -517,8 +519,9 @@ class Nifty_OMS:
                     optionType="PE"
                 df_filtered = df[df[9].str.startswith(f"NSE:NIFTY") & df[9].str.contains(f"{ATM}{optionType}")]
                 expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
-                dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
-                load_dotenv(dotenv_path)            
+                #dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
+                load_dotenv(dotenv_path, override=True)            
                 if expiry_date != datetime.today().date():
                     symbol = str(df_filtered.iloc[0][9])
                     if side == "Buy":
