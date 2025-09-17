@@ -75,7 +75,7 @@ async def main():
                  
         # dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
         dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
-        load_dotenv(dotenv_path, override=True)            
+        load_dotenv(dotenv_path, override=True)       
         set_key(dotenv_path, 'NIFTY_BUY_SYMBOL', "")
         set_key(dotenv_path, 'NIFTY_SELL_SYMBOL', "")
         logger.info("Cleared Nifty Buy and Sell Symbols")
