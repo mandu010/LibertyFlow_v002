@@ -103,11 +103,19 @@ class LibertyFlow:
 
                 self.logger.info("Starting parallel swing formation and monitoring tasks")
                 asyncio.create_task(slack.send_message("Starting parallel swing formation and monitoring tasks"))
-                await asyncio.gather(
-                    self.run_swh_formation(swh_swing),
-                    self.run_swl_formation(swl_swing)
-                    #self.monitor_trading_session()
-                )
+
+                # As per claude, gather waits for both to complete before proceeding to the next line.
+                # await asyncio.gather(
+                #     self.run_swh_formation(swh_swing),
+                #     self.run_swl_formation(swl_swing)
+                #     #self.monitor_trading_session()
+                # )
+            # Separating the collection of swing formations
+            swh_task = asyncio.create_task(self.run_swh_formation(swh_swing))
+            swl_task = asyncio.create_task(self.run_swl_formation(swl_swing))
+            active_tasks.extend([swh_task, swl_task])
+
+            self.logger.info("Both swing formation tasks started in background")
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout"))
 
@@ -120,10 +128,29 @@ class LibertyFlow:
                     timeout=self._get_seconds_until_time(breakout_timeout)
                 )
                 direction, price = state["direction"], state["price"]
+                self.logger.info(f"Breakout received: {direction} at {price}")
+
+                # Cancel swing monitoring tasks since we have breakout
+                if not swh_task.done():
+                    swh_task.cancel()
+                    self.logger.info("Cancelled SWH monitoring task")
+                if not swl_task.done():
+                    swl_task.cancel()
+                    self.logger.info("Cancelled SWL monitoring task")
+
             except asyncio.TimeoutError:
                 self.logger.info("Breakout timeout reached at 13:00 -> Exit")
                 await slack.send_message("Breakout timeout reached at 13:00 -> Exit")
                 await self.db.update_status(status='Exited - No Breakout by 13:00')
+                
+                # Cancel swing monitoring tasks since we have breakout
+                if not swh_task.done():
+                    swh_task.cancel()
+                    self.logger.info("Cancelled SWH monitoring task")
+                if not swl_task.done():
+                    swl_task.cancel()
+                    self.logger.info("Cancelled SWL monitoring task")
+
                 return 1
 
 

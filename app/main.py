@@ -122,10 +122,33 @@ async def main():
 
 
 if __name__ == "__main__":
+    # # Set up signal handlers
+    # for sig in (signal.SIGINT, signal.SIGTERM):
+    #     signal.signal(sig, lambda s, f: asyncio.create_task(shutdown(s.name)))
+    
+    # FIXED: Proper signal handler that works with asyncio
+    def signal_handler(signum, frame):
+        """Handle shutdown signals properly"""
+        try:
+            sig_name = signal.Signals(signum).name
+        except (ValueError, AttributeError):
+            sig_name = f"Signal-{signum}"
+        
+        # Get the current event loop
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(shutdown(sig_name))
+            else:
+                logger.info(f"Received {sig_name} but loop not running")
+                sys.exit(0)
+        except Exception as e:
+            logger.error(f"Error in signal handler: {e}")
+            sys.exit(1)
+    
     # Set up signal handlers
     for sig in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sig, lambda s, f: asyncio.create_task(shutdown(s.name)))
-    
+        signal.signal(sig, signal_handler)    
     try:
         exit_code = asyncio.run(main())
         sys.exit(exit_code)
