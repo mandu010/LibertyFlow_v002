@@ -116,6 +116,35 @@ class LibertyFlow:
             active_tasks.extend([swh_task, swl_task])
 
             self.logger.info("Both swing formation tasks started in background")
+
+            # Wait for at least one swing to form before proceeding to breakout monitoring
+            self.logger.info("Waiting for at least one swing (SWH or SWL) to form...")
+            swing_formation_timeout = time(12, 25)  # Cutoff time for swing formation
+            try:
+                await asyncio.wait_for(
+                    asyncio.wait(
+                        [self.events["swh_formed"].wait(), self.events["swl_formed"].wait()],
+                        return_when=asyncio.FIRST_COMPLETED
+                    ),
+                    timeout=self._get_seconds_until_time(swing_formation_timeout)
+                )
+                self.logger.info("At least one swing has formed, proceeding to breakout monitoring")
+                await slack.send_message("At least one swing formed - monitoring for breakout")
+            except asyncio.TimeoutError:
+                self.logger.info(f"No swings formed by {swing_formation_timeout} -> Exit")
+                await slack.send_message(f"No swings formed by {swing_formation_timeout} -> Exiting")
+                await self.db.update_status(status='Exited - No Swings Formed')
+
+                # Cancel swing monitoring tasks
+                if not swh_task.done():
+                    swh_task.cancel()
+                    self.logger.info("Cancelled SWH monitoring task")
+                if not swl_task.done():
+                    swl_task.cancel()
+                    self.logger.info("Cancelled SWL monitoring task")
+
+                return 1
+
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout"))
 
@@ -124,7 +153,7 @@ class LibertyFlow:
             try:
                 # state = await self.breakout.wait_for_breakout()
                 state = await asyncio.wait_for(
-                    self.breakout.wait_for_breakout(), 
+                    self.breakout.wait_for_breakout(),
                     timeout=self._get_seconds_until_time(breakout_timeout)
                 )
                 direction, price = state["direction"], state["price"]
