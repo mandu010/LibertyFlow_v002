@@ -60,6 +60,7 @@ class TradeSettings(BaseSettings):
 class SlackSettings(BaseSettings):
     SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN")
     SLACK_NIFTY_STATUS_WEBHOOK: str = os.getenv("SLACK_NIFTY_STATUS_WEBHOOK")
+    SLACK_BANKNIFTY_STATUS_WEBHOOK: str = os.getenv("SLACK_BANKNIFTY_STATUS_WEBHOOK")
 
     model_config = {
         "extra": "ignore"

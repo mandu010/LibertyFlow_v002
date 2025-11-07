@@ -20,37 +20,59 @@ class SlackNotifier:
     """
     def __init__(self):
         self._client = AsyncWebClient(token=settings.slack.SLACK_BOT_TOKEN) if settings.slack.SLACK_BOT_TOKEN else None
-        self._webhook = AsyncWebhookClient(settings.slack.SLACK_NIFTY_STATUS_WEBHOOK) if settings.slack.SLACK_NIFTY_STATUS_WEBHOOK else None
-        
-        if not self._client and not self._webhook:
+
+        # Initialize multiple webhooks dictionary
+        self._webhooks = {}
+        if settings.slack.SLACK_NIFTY_STATUS_WEBHOOK:
+            self._webhooks['default'] = AsyncWebhookClient(settings.slack.SLACK_NIFTY_STATUS_WEBHOOK)
+        if settings.slack.SLACK_BANKNIFTY_STATUS_WEBHOOK:
+            self._webhooks['banknifty'] = AsyncWebhookClient(settings.slack.SLACK_BANKNIFTY_STATUS_WEBHOOK)
+
+        # Keep backward compatibility - existing code uses self._webhook
+        self._webhook = self._webhooks.get('default')
+
+        if not self._client and not self._webhooks:
             logger.warning("No Slack credentials configured. Slack notifications will be disabled.")
             
-    async def send_message(self, 
-                          message: str, 
-                          channel: Optional[str] = None, 
+    async def send_message(self,
+                          message: str,
+                          channel: Optional[str] = None,
                           blocks: Optional[list] = None,
-                          attachments: Optional[list] = None) -> bool:
+                          attachments: Optional[list] = None,
+                          webhook_name: Optional[str] = None) -> bool:
         """
         Send a message to Slack asynchronously.
-        
+
         Args:
             message: The text message to send
             channel: The Slack channel to send to (only used with bot token method)
             blocks: Optional formatted message blocks
             attachments: Optional message attachments
-            
+            webhook_name: Optional webhook name ('default', 'banknifty'). Defaults to 'default' if not specified.
+
         Returns:
             bool: True if message was sent successfully, False otherwise
         """
         try:
+            # Select the appropriate webhook
+            webhook_to_use = None
+            if webhook_name:
+                webhook_to_use = self._webhooks.get(webhook_name)
+                if not webhook_to_use:
+                    logger.error(f"Webhook '{webhook_name}' not found. Available webhooks: {list(self._webhooks.keys())}")
+                    return False
+            else:
+                # Use default webhook for backward compatibility
+                webhook_to_use = self._webhook
+
             # Try webhook first if available (doesn't require channel)
-            if self._webhook:
-                return await self._send_webhook(message, blocks, attachments)
-            
+            if webhook_to_use:
+                return await self._send_webhook(webhook_to_use, message, blocks, attachments)
+
             # Fall back to API client if webhook not available
             elif self._client and channel:
                 return await self._send_api(channel, message, blocks, attachments)
-            
+
             # Log and return if neither method can be used
             elif self._client and not channel:
                 logger.error("Channel is required when sending messages via Slack API")
@@ -58,18 +80,19 @@ class SlackNotifier:
             else:
                 logger.debug(f"Slack notification not sent (disabled): {message}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Failed to send Slack notification: {str(e)}")
             return False
     
-    async def _send_webhook(self, 
-                           message: str, 
+    async def _send_webhook(self,
+                           webhook_client: AsyncWebhookClient,
+                           message: str,
                            blocks: Optional[list] = None,
                            attachments: Optional[list] = None) -> bool:
         """Send message via webhook"""
         try:
-            response = await self._webhook.send(
+            response = await webhook_client.send(
                 text=message,
                 blocks=blocks,
                 attachments=attachments
