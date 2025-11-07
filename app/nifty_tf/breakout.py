@@ -65,22 +65,48 @@ class LibertyBreakout:
         background WebSocket thread that watches both SWH and SWL.
         Subsequent calls just update the thresholds immediately.
         """
+        swh_set = False
+        swl_set = False
+
         with self.threshold_lock:        
             if swh_price is not None:
                 self.swh_price = swh_price
-                self.logger.info(f"Registered SWH → {self.swh_price}")
-                await slack.send_message(f"Registered SWH → {self.swh_price}")
+                # self.logger.info(f"Registered SWH → {self.swh_price}")
+                swh_set = True
+                # await slack.send_message(f"Registered SWH → {self.swh_price}")
             if swl_price is not None:
                 self.swl_price = swl_price
-                self.logger.info(f"Registered SWL → {self.swl_price}")
-                await slack.send_message(f"Registered SWL → {self.swl_price}")
+                # self.logger.info(f"Registered SWL → {self.swl_price}")
+                swl_set = True
+                # await slack.send_message(f"Registered SWL → {self.swl_price}")
 
-        if not self._monitor_started:
-            self._monitor_started = True
-            self._done_event = asyncio.Event()
-            # Launch the watcher on its own asyncio task
+            # start_watcher = not self._monitor_started
+            start_watcher = not getattr(self, "_monitor_started", False)
+            if start_watcher:
+                self._monitor_started = True
+                self._done_event = asyncio.Event()                
+
+        # if not self._monitor_started:
+        #     self._monitor_started = True
+        #     self._done_event = asyncio.Event()
+        #     # Launch the watcher on its own asyncio task
+        #     asyncio.create_task(self._watch_for_breakout())
+        #     asyncio.create_task(self.db.update_status(status='Awaiting Breakout'))
+
+        # do awaits OUTSIDE the lock
+        if swh_set:
+            msg = f"Registered SWH → {self.swh_price}"
+            self.logger.info(msg)
+            asyncio.create_task(slack.send_message(msg))
+        if swl_set:
+            msg = f"Registered SWL → {self.swl_price}"
+            self.logger.info(msg)
+            asyncio.create_task(slack.send_message(msg))
+
+        if start_watcher:
             asyncio.create_task(self._watch_for_breakout())
-            asyncio.create_task(self.db.update_status(status='Awaiting Breakout'))
+            # status update also outside the lock
+            asyncio.create_task(self.db.update_status(status='Awaiting Breakout'))        
 
     async def wait_for_breakout(self):
         """
@@ -305,23 +331,30 @@ class LibertyBreakout:
         if hasattr(self, 'sl_hit_event'):
             self.sl_hit_event.set()
 
-    async def update_sl_price(self, new_sl_price):        
+    async def update_sl_price(self, new_sl_price) -> None:        
+        send_msg = None
+
         with self.sl_lock:
             side = self.sl_state["side"]
             if side == "Buy":
                 if new_sl_price > self.sl_state["sl_price"]:
                     self.sl_state["sl_price"] = new_sl_price
-                    await slack.send_message(f"update_sl_price(): Trailed to {new_sl_price}.")
-                    self.logger.info(f"update_sl_price(): Trailed to {new_sl_price}.")
-                    return                    
+                    send_msg = f"update_sl_price(): Trailed to {new_sl_price}."
+                    # await slack.send_message(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    # self.logger.info(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    # return                    
             else:
                 if new_sl_price < self.sl_state["sl_price"]:
                     self.sl_state["sl_price"] = new_sl_price
-                    await slack.send_message(f"update_sl_price(): Trailed to {new_sl_price}.")
-                    self.logger.info(f"update_sl_price(): Trailed to {new_sl_price}.")
-                    return
-        self.logger.info(f"No trailing required for {new_sl_price}")
-        return
+                    send_msg = f"update_sl_price(): Trailed to {new_sl_price}."
+                    # await slack.send_message(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    # self.logger.info(f"update_sl_price(): Trailed to {new_sl_price}.")
+                    # return
+        if send_msg:
+            asyncio.create_task(slack.send_message(send_msg))
+            self.logger.info(send_msg)
+        else:
+            self.logger.info(f"No trailing required for {new_sl_price}")
 
 
     async def trail_sl(self, orderID):        
