@@ -27,7 +27,7 @@ class FyersClient:
                 client_id=self.client_id,
                 token=self.access_token)
             logger.info("connect():Fyers client initialized successfully")
-            if await self._validate_token() and await self._update_nifty_symbol():
+            if await self._validate_token() and await self._update_nifty_symbol() and await self._update_banknifty_symbol():
                 return self.fyers
             else:
                 return None
@@ -75,6 +75,24 @@ class FyersClient:
             return True
         except Exception as e:
             logger.error(f"_update_nifty_symbol():Error validating token: {str(e)}")
+            return False 
+        
+    async def _update_banknifty_symbol(self) -> bool:
+        try:
+            url = 'https://public.fyers.in/sym_details/NSE_FO.csv'
+            df = pd.read_csv(url, header=None)
+            df_filtered = df[df[9].str.startswith(f"NSE:BANKNIFTY") & df[9].str.contains(f"FUT") & ~df[9].str.contains(f"NXT")]
+            expiry_date = datetime.strptime(f"{df_filtered.iloc[0][1].split(" ")[3]} {df_filtered.iloc[0][1].split(" ")[2]} {datetime.now().year}", "%d %b %Y").date()
+            if expiry_date != datetime.today().date():
+                symbol = str(df_filtered.iloc[0][9])
+            else:
+                symbol = str(df_filtered.iloc[1][9])
+            dotenv_path = find_dotenv() 
+            set_key(dotenv_path, 'BANKNIFTY_SYMBOL', symbol)
+            logger.info(f"_update_banknifty_symbol(): Setting Nifty Symbol: {symbol}")
+            return True
+        except Exception as e:
+            logger.error(f"_update_banknifty_symbol():Error validating token: {str(e)}")
             return False 
         
 fyersClient = FyersClient()

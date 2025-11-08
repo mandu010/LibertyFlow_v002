@@ -8,7 +8,7 @@ import signal
 from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
-from app.nifty_tf.strategy_main import LibertyFlow
+from app.nifty_tf.libertymomentum_bnf_strategy_main import LibertyMomentum_BNF
 #from app.nifty_tf.strategy_main_test import LibertyFlow
 from app.slack import slack
 
@@ -17,7 +17,7 @@ logger = get_logger("LibertyMomentum_BNF_MAIN")
 
 # Global flags for clean shutdown
 shutdown_requested = False
-strategy = None  # Global reference to allow proper cleanup
+strategy_bnf_1 = None  # Global reference to allow proper cleanup
 
 async def shutdown(signal_name=None):
     """Gracefully shut down the application"""
@@ -34,11 +34,11 @@ async def shutdown(signal_name=None):
     else:
         logger.info("Initiating shutdown")
     
-    await slack.send_message("Liberty Momentum shutting down...")
+    await slack.send_message("Liberty Momentum shutting down...",webhook_name="banknifty")
     
     # Cleanup strategy if it exists
-    if strategy is not None:
-        logger.info("Stopping strategy...")
+    if strategy_bnf_1 is not None:
+        strategy_bnf_1.info("Stopping strategy...")
         # Strategy already handles DB closing, so we don't need to close it again here
     
     # Wait briefly for any pending async operations to complete
@@ -73,15 +73,15 @@ def today_holiday():
 
 async def main():
     # Setup logging first
-    global strategy
-    setup_logging()
+    global strategy_bnf_1
+    setup_logging(strategy_name='banknifty')
     logger.info("Starting Liberty Momentum BNF...")
-    asyncio.create_task(slack.send_message("Starting Liberty Momentum BNF..."))
+    asyncio.create_task(slack.send_message("Starting Liberty Momentum BNF...",webhook_name="banknifty"))
     
     try:
         if today_holiday():
             logger.info("Today is a holiday. Skipping trading session.")
-            await slack.send_message("Today is a holiday.")
+            await slack.send_message("Today is a holiday.",webhook_name="banknifty")
             return 0
         # Initialize database connection
         logger.info("Connecting to database...")
@@ -93,15 +93,15 @@ async def main():
         fyers = await fyersClient.connect()
         if fyers is None:
             logger.error("Fyers client initialization failed")
-            await slack.send_message("ERROR: Fyers client initialization failed. Exiting.")
+            await slack.send_message("ERROR: Fyers client initialization failed. Exiting.",webhook_name="banknifty")
             await db.close()
             return 1
         
         logger.info("Fyers client initialized")
 
         # Initializing & Running Strategy
-        strategy = LibertyFlow(db, fyers)        
-        result = await strategy.run()   
+        strategy_bnf_1 = LibertyMomentum_BNF(db, fyers)        
+        result = await strategy_bnf_1.run()   
 
         # Check result and log appropriately
         if result == 1:
@@ -109,7 +109,7 @@ async def main():
         else:
             logger.info("Strategy execution completed successfully")
             
-        await slack.send_message("Liberty Flow execution completed")        
+        await slack.send_message("Liberty Momentum BNF execution completed",webhook_name="banknifty")        
 
         # Returning exit code based on strategy result
         return 0 if result != 1 else 1
@@ -117,15 +117,11 @@ async def main():
     except Exception as e:
         error_traceback = traceback.format_exc()
         logger.error(f"Error in main function: {e}\n{error_traceback}")
-        await slack.send_message(f"CRITICAL ERROR: Application failed: {str(e)[:200]}")
+        await slack.send_message(f"CRITICAL ERROR: Application failed: {str(e)[:200]}",webhook_name="banknifty")
         return 1
 
 
 if __name__ == "__main__":
-    # # Set up signal handlers
-    # for sig in (signal.SIGINT, signal.SIGTERM):
-    #     signal.signal(sig, lambda s, f: asyncio.create_task(shutdown(s.name)))
-    
     # FIXED: Proper signal handler that works with asyncio
     def signal_handler(signum, frame):
         """Handle shutdown signals properly"""
@@ -158,7 +154,7 @@ if __name__ == "__main__":
         error_traceback = traceback.format_exc()
         logger.error(f"Unhandled exception: {str(e)}\n{error_traceback}")
         try:
-            asyncio.run(slack.send_message(f"FATAL ERROR: Application crashed: {str(e)[:200]}"))
+            asyncio.run(slack.send_message(f"FATAL ERROR: Application crashed: {str(e)[:200]}",webhook_name="banknifty"))
         except:
             pass        
         sys.exit(1)

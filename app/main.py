@@ -3,9 +3,8 @@ import sys
 import traceback
 from datetime import date
 
-from app.utils.logging import get_logger
+from app.utils.logging import setup_logging, get_logger
 import signal
-from app.utils.logging import setup_logging
 from app.db.dbclass import db
 from app.fyers.client import fyersClient
 from app.nifty_tf.strategy_main import LibertyFlow
@@ -122,10 +121,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # # Set up signal handlers
-    # for sig in (signal.SIGINT, signal.SIGTERM):
-    #     signal.signal(sig, lambda s, f: asyncio.create_task(shutdown(s.name)))
-    
     # FIXED: Proper signal handler that works with asyncio
     def signal_handler(signum, frame):
         """Handle shutdown signals properly"""
