@@ -52,6 +52,11 @@ class TradeSettings(BaseSettings):
     LIMIT_TYPE: int = int(os.getenv("LIMIT_TYPE"))
     MARKET_TYPE: int = int(os.getenv("MARKET_TYPE"))
     NIFTY_SL_PCT: float = float(os.getenv("NIFTY_SL_PCT"))
+    # Bank Nifty
+    BANKNIFTY_LOT: int = int(os.getenv("BANKNIFTY_LOT"))
+    BANKNIFTY_LOT_SIZE: int = int(os.getenv("BANKNIFTY_LOT_SIZE"))
+    BANKNIFTY_SYMBOL: str = os.getenv("BANKNIFTY_SYMBOL")    
+    BANKNIFTY_SL_PCT: float = float(os.getenv("BANKNIFTY_SL_PCT"))
 
     model_config = {
         "extra": "ignore"

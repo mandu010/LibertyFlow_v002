@@ -7,12 +7,12 @@ import asyncio
 import pytz
 
 from app.utils.logging import get_logger
-from app.nifty_tf.market_data import LibertyMarketData
+from app.nifty_tf.market_data_bnf import LibertyMarketData
 from app.slack import slack
 
 class LibertyTrigger():
     def __init__(self, db, fyers):
-        self.logger = get_logger("LibertyTrigger")
+        self.logger = get_logger("LibertyTrigger_Bnf")
         self.db = db
         self.fyers = fyers
         self.LibertyMarketData = LibertyMarketData(db, fyers)
@@ -28,35 +28,23 @@ class LibertyTrigger():
                     break            
             min1_df = await self.LibertyMarketData.fetch_1min_data()
             min1_df['timestamp'] = pd.to_datetime(min1_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
-
-            sqlTrue = f'''UPDATE nifty.trigger_status 
-            SET "pct_trigger" = TRUE, "trigger_index" = 0, "trigger_time" = '09:15:00', "swhTime" = '09:15:00', "swlTime" = '09:15:00'
-            WHERE date = CURRENT_DATE '''
-            sqlFalse = f'''UPDATE nifty.trigger_status 
-            SET "pct_trigger" = FALSE
-            WHERE date = CURRENT_DATE '''
             
             change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
-            asyncio.create_task(slack.send_message(f"Percent Change is {change}"))
-            if change >= 0.4:
+            asyncio.create_task(slack.send_message(f"Percent Change is {change}",webhook_name="banknifty"))
+            if change >= 0.3 and change <= 1.0:
                 self.logger.info(f"pct_trigger(): Triggered. Percent Change is {change}")
-                await self.db.execute_query(sqlTrue) 
-                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
-                return True
-            elif change <= -0.4:
-                    self.logger.info(f"pct_trigger(): Triggered. Percent Change is {change}")
-                    await self.db.execute_query(sqlTrue)                        
-                    return True
+                return [True, change]
+            elif change <= -0.3 and change >= -1.0:
+                    return [True, change]
             else:
-                self.logger.info(f"pct_trigger(): Not Triggered. Go to ATR Trigger. Percent Change is {change}")
-                await self.db.execute_query(sqlFalse)                  
-                return False
+                self.logger.info(f"pct_trigger(): Not Triggered. Exiting. Percent Change is {change}")
+                return [False, change]
       
         except Exception as e:
             self.logger.error(f"pct_trigger(): Error fetching min1 data: {e}", exc_info=True)
             return False
         
-    async def ATR(self) -> bool:
+    async def ATR(self,opening_percent):
         try:
             while True:
                 if datetime.now().time() < time(9, 20):
@@ -70,14 +58,7 @@ class LibertyTrigger():
             df_today['timestamp'] = pd.to_datetime(df_today['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')         
 
             df_prevDay = await self.LibertyMarketData.fetch_prevDay_5min_data()
-            df_prevDay['timestamp'] = pd.to_datetime(df_prevDay['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')         
-
-            sqlTrue = f'''UPDATE nifty.trigger_status 
-            SET "atr" = TRUE, "trigger_index" = 0, "trigger_time" = '09:15:00', "swhTime" = '09:15:00', "swlTime" = '09:15:00'
-            WHERE date = CURRENT_DATE '''
-            sqlFalse = f'''UPDATE nifty.trigger_status 
-            SET atr = FALSE
-            WHERE date = CURRENT_DATE '''             
+            df_prevDay['timestamp'] = pd.to_datetime(df_prevDay['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')                      
 
             average_prev_body = (df_prevDay['close'] - df_prevDay['open']).abs().tail(10).mean()
             if average_prev_body != 0:
@@ -85,21 +66,29 @@ class LibertyTrigger():
             else:
                 atrVal = 0
             self.logger.info(f"ATR(): ATR Value: {atrVal}")
-            # await slack.send_message(f"ATR(): ATR Value: {atrVal}")
-            asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}"))
-            if atrVal >= 300 or atrVal <= -300:
-                await self.db.execute_query(sqlTrue)
-                await self.db.execute_query("UPDATE nifty.status SET status = 'Awaiting Trigger' WHERE date = CURRENT_DATE") 
-                print(atrVal)
-                return True
+            asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}",webhook_name="banknifty"))
+            if df_today.iloc[0]['close'] > df_today.iloc[0]['open']:
+                direction = "Buy"
+                poi = round(df_today.iloc[0]['high'])
+            if df_today.iloc[0]['close'] < df_today.iloc[0]['open']:
+                direction = "Sell"
+                poi = round(df_today.iloc[0]['low'])
+
+            """Checking Criteria 1"""
+            if atrVal >= 1000 and atrVal <= 1500:
+                return [True,direction.poi]
+
+            """Checking Criteria 2: Dynamic Calculation"""
+            dynamic_cbab_calculator_result = self.dynamic_cbab_calculator(opening_percent=opening_percent, CBAB_value=atrVal)
+            if dynamic_cbab_calculator_result:
+                return [True,direction,poi]
             else:
-                self.logger.info(f"ATR(): ATR Value not met. Go to Range break trigger.")
-                await self.db.execute_query(sqlFalse)
-                return False
+                self.logger.info(f"ATR(): ATR Value not met. Exiting")
+                return [False,direction,poi]
+            
         except Exception as e:
             self.logger.error(f"ATR(): Error fetching today 5min candle data: {e}", exc_info=True)
-            await self.db.execute_query(sqlFalse)
-            return False    
+            return [False,"N/A",0.0]
         
     async def range_break(self, range) -> bool:
         try: 
@@ -269,3 +258,53 @@ class LibertyTrigger():
             next_5min -= 60
             
         return time(new_hour, next_5min)
+    
+    def dynamic_cbab_calculator(opening_percent, CBAB_value,
+                                gap_low=0.30, gap_high=1.00,
+                                CBAB_MIN_AT_LOW=300, CBAB_MIN_AT_HIGH=800,
+                                CBAB_MAX_AT_LOW=800, CBAB_MAX_AT_HIGH=1500):
+        """
+        CBAB × Opening % dynamic range calculator (supports +ve / -ve openings)
+
+        Parameters:
+        -----------
+        opening_percent : float
+            Opening gap %, can be +ve or -ve
+        CBAB_value : float
+            The CBAB value to check
+        gap_low : float, default=0.30
+            Lower gap threshold
+        gap_high : float, default=1.00
+            Upper gap threshold
+        CBAB_MIN_AT_LOW : float, default=300
+            CBAB minimum when opening = gap_low
+        CBAB_MIN_AT_HIGH : float, default=800
+            CBAB minimum when opening = gap_high
+        CBAB_MAX_AT_LOW : float, default=900
+            CBAB maximum when opening = gap_low
+        CBAB_MAX_AT_HIGH : float, default=1500
+            CBAB maximum when opening = gap_high
+
+        Returns:
+        --------
+        bool : True if CBAB value is within the dynamic range, False otherwise
+        """
+
+        def clamp(x, lo, hi):
+            return max(lo, min(hi, x))
+
+        def interpolate(x, x0, x1, y0, y1):
+            x = clamp(x, x0, x1)
+            t = (x - x0) / (x1 - x0)
+            return y0 + t * (y1 - y0)
+
+        # Absolute gap (handles -ve openings too)
+        g = abs(opening_percent)
+
+        # Linear interpolation for thresholds
+        cbab_min = interpolate(g, gap_low, gap_high, CBAB_MIN_AT_LOW, CBAB_MIN_AT_HIGH)
+        cbab_max = interpolate(g, gap_low, gap_high, CBAB_MAX_AT_LOW, CBAB_MAX_AT_HIGH)
+        # print(f"cbab_min:{cbab_min} cbab_max:{cbab_max}")
+
+        # Return True/False based on whether CBAB is within range
+        return cbab_min <= CBAB_value <= cbab_max    

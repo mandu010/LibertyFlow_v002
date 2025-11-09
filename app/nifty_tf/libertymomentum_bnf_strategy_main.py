@@ -2,12 +2,12 @@ import asyncio
 from datetime import datetime,time
 import traceback
 
-from app.nifty_tf.range import LibertyRange
+from app.nifty_tf.range_bnf import LibertyRange
 from app.nifty_tf.breakout import LibertyBreakout
 from app.utils.logging import get_logger
 from app.fyers.oms.nifty_tf_oms import Nifty_OMS
 from app.nifty_tf.swingFormation2 import LibertySwing
-from app.nifty_tf.trigger2 import LibertyTrigger
+from app.nifty_tf.trigger2_bnf import LibertyTrigger
 from app.slack import slack
 
 class LibertyMomentum_BNF:
@@ -36,32 +36,7 @@ class LibertyMomentum_BNF:
         try:
             active_tasks = []
             self.logger.info("LibertyMomentum_BNF run started")
-            pctTrigger, atrTrigger, rangeTrigger = False, False, False ### Initializing triggers as False
-            sql='''INSERT INTO nifty.trigger_status (date, pct_trigger, atr, range)
-                SELECT CURRENT_DATE, NULL, NULL, NULL
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM nifty.trigger_status WHERE date = CURRENT_DATE
-                );'''
-            await self.db.execute_query(sql)            
             range_val = await self.range.read_range()
-            sqlStatus = '''INSERT INTO nifty.status (date, status)
-                SELECT CURRENT_DATE,'Awaiting Trigger'
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM nifty.status WHERE date = CURRENT_DATE
-                );'''
-            await self.db.execute_query(sqlStatus)
-
-            triggerStatusSql = '''
-                    SELECT pct_trigger, atr, range FROM nifty.trigger_status
-                    where date = CURRENT_DATE
-                    order by ctid DESC
-                    limit 1
-                  '''
-            triggerStatus = await self.db.fetch_query(triggerStatusSql)
-            if  triggerStatus is not None and  len(triggerStatus) != 0:
-                if triggerStatus[0]['pct_trigger'] is not None: pctTrigger = bool(triggerStatus[0]['pct_trigger'])
-                if triggerStatus[0]['atr'] is not None: atrTrigger = bool(triggerStatus[0]['atr'])
-                if triggerStatus[0]['range'] is not None: rangeTrigger = bool(triggerStatus[0]['range'])
 
             ### Wait until Market start if before 9.15
             while True:
@@ -71,23 +46,28 @@ class LibertyMomentum_BNF:
                 else:
                     break
 
-            if not any([pctTrigger]):
-                await asyncio.sleep(15)
-                pctTrigger = await self.trigger.pct_trigger(range_val)            
+            """Waiting 15 seconds, Getting PCT Trigger at 9.16 AM"""
+            await asyncio.sleep(15)
 
-            if not any([pctTrigger, atrTrigger]):
-                atrTrigger = await self.trigger.ATR()
+            pctTrigger = await self.trigger.pct_trigger(range_val)
+            if not pctTrigger[0]:
+                return 1 ### Exiting Whole Application # Will Comment this to check daily for ATR passings and other tests
+            
+            """ATR Check"""
+            atrTrigger = await self.trigger.ATR(opening_percent=pctTrigger[1])
+            direction = atrTrigger[1]
+            poi = atrTrigger[2] ### Price of Interest
 
-            if not any([pctTrigger, atrTrigger, rangeTrigger]): 
-                rangeTrigger = await self.trigger.check_triggers_until_cutoff(range_val)
+            if not atrTrigger:
+                return 1 ### Exiting
 
             ### Exiting if not Triggered
-            if not any([pctTrigger, atrTrigger, rangeTrigger]):
+            if not any([pctTrigger[0], atrTrigger]):
                 self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
                 task = asyncio.create_task(self.db.update_status(status='Not Triggered'))
                 active_tasks.append(task)
                 return 1   
-            if pctTrigger or atrTrigger or rangeTrigger:
+            if pctTrigger[0] or atrTrigger:
                 task = asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
                 active_tasks.append(task)
 
