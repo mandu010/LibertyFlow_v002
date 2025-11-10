@@ -74,7 +74,7 @@ class LibertyRange:
                 if (df.iloc[0]['close'] < (range['high'] + range['high']*self.range_pct) and 
                     df.iloc[0]['close'] > (range['low'] - range['low']*self.range_pct)):
                     self.logger.info(f"update_range(): Today's candle is within the range")
-                    await slack.send_message("Closed Within Range Today",webhook_name="banknifty",webhook_name="banknifty")
+                    await slack.send_message("Closed Within Range Today",webhook_name="banknifty")
                     value = {
                             "datetime": datetime.now().strftime('%Y-%m-%d'),
                             "high": convert_to_json_serializable(range['high']),

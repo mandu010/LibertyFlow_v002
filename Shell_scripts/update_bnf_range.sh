@@ -16,4 +16,3 @@ cd "${LIBERTY_APP}"
 
 # 3. Run the main application module
 python3 -m app.range_update_bnf
-
