@@ -66,7 +66,7 @@ class LibertyTrigger():
             else:
                 atrVal = 0
             self.logger.info(f"ATR(): ATR Value: {atrVal}")
-            asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal}",webhook_name="banknifty"))
+
             if df_today.iloc[0]['close'] > df_today.iloc[0]['open']:
                 direction = "Buy"
                 poi = round(df_today.iloc[0]['high'])
@@ -74,6 +74,7 @@ class LibertyTrigger():
                 direction = "Sell"
                 poi = round(df_today.iloc[0]['low'])
 
+            asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal} direction:{direction} poi: {poi} ",webhook_name="banknifty"))            
             """Checking Criteria 1"""
             if atrVal >= 1000 and atrVal <= 1500:
                 return [True,direction.poi]
