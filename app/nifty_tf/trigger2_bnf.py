@@ -69,10 +69,10 @@ class LibertyTrigger():
 
             if df_today.iloc[0]['close'] > df_today.iloc[0]['open']:
                 direction = "Buy"
-                poi = round(df_today.iloc[0]['high'])
+                poi = round(df_today.iloc[0]['high'])+1
             if df_today.iloc[0]['close'] < df_today.iloc[0]['open']:
                 direction = "Sell"
-                poi = round(df_today.iloc[0]['low'])
+                poi = round(df_today.iloc[0]['low'])-1
 
             asyncio.create_task(slack.send_message(f"ATR(): ATR Value: {atrVal} direction:{direction} poi: {poi} ",webhook_name="banknifty"))            
             """Checking Criteria 1"""

@@ -3,7 +3,7 @@ from datetime import datetime,time
 import traceback
 
 from app.nifty_tf.range_bnf import LibertyRange
-from app.nifty_tf.breakout import LibertyBreakout
+from app.nifty_tf.breakout_bnf import LibertyBreakout
 from app.utils.logging import get_logger
 from app.fyers.oms.nifty_tf_oms import Nifty_OMS
 from app.nifty_tf.swingFormation2 import LibertySwing
@@ -57,42 +57,20 @@ class LibertyMomentum_BNF:
             atrTrigger = await self.trigger.ATR(opening_percent=pctTrigger[1])
             direction = atrTrigger[1]
             poi = atrTrigger[2] ### Price of Interest
+            asyncio.create_task(self.place_order.set_option_symbol_bnf(side=direction,ltp=float(poi)))
 
             if not atrTrigger[0]:
-                return 1 ### Exiting
-            return 1
-            ### Exiting if not Triggered
-            if not any([pctTrigger[0], atrTrigger]):
-                self.logger.info("Not Triggered -> Exit") ### Exit out of day and close the server. Script should not go forward.
-                task = asyncio.create_task(self.db.update_status(status='Not Triggered'))
-                active_tasks.append(task)
-                return 1   
-            if pctTrigger[0] or atrTrigger:
-                task = asyncio.create_task(self.db.update_status(status='Awaiting Swing Formation'))
-                active_tasks.append(task)
+                return 0 ### Exiting
+            # return 0
 
-                trigger_time = await self.db.fetch_trigger_time() 
-                if trigger_time is not None and len(trigger_time) != 0:
-                    trigger_time = trigger_time[0]['trigger_time']
-                    self.logger.info(f"Using trigger time: {trigger_time}")
-                print(f"Trigger Time: {trigger_time}")
-
-                # Initializing Swing Class
-                swh_swing = LibertySwing(self.db, self.fyers)    
-                swl_swing = LibertySwing(self.db, self.fyers)                
-
-                self.logger.info("Starting parallel swing formation and monitoring tasks")
-                asyncio.create_task(slack.send_message("Starting parallel swing formation and monitoring tasks",webhook_name="banknifty"))
-                await asyncio.gather(
-                    self.run_swh_formation(swh_swing),
-                    self.run_swl_formation(swl_swing)
-                    #self.monitor_trading_session()
-                )
+            await asyncio.gather(
+                self.run_bnf_breakout(poi=poi,direction=direction)
+            )
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout",webhook_name="banknifty"))
 
             # Timeout Timing for Breakout
-            breakout_timeout = time(13, 0)
+            breakout_timeout = time(10, 30)
             try:
                 # state = await self.breakout.wait_for_breakout()
                 state = await asyncio.wait_for(
@@ -101,9 +79,9 @@ class LibertyMomentum_BNF:
                 )
                 direction, price = state["direction"], state["price"]
             except asyncio.TimeoutError:
-                self.logger.info("Breakout timeout reached at 13:00 -> Exit")
-                await slack.send_message("Breakout timeout reached at 13:00 -> Exit",webhook_name="banknifty")
-                await self.db.update_status(status='Exited - No Breakout by 13:00')
+                self.logger.info("Breakout timeout reached at 10:30 -> Exit")
+                await slack.send_message("Breakout timeout reached at 10:30 -> Exit",webhook_name="banknifty")
+                await self.db.update_status(status='Exited - No Breakout by 10:30')
                 return 1
 
 
@@ -297,3 +275,22 @@ class LibertyMomentum_BNF:
             except Exception as e:
                 self.logger.error(f"Error monitoring trading session: {e}", exc_info=True)
                 self.events["trading_complete"].set()  # Set the event to prevent hanging
+
+    async def run_bnf_breakout(self, poi, direction):
+        """notify breakout when it forms"""
+        try:
+            self.logger.info("run_bnf_breakout(): Starting Breakout Monitoring")
+            asyncio.create_task(slack.send_message("run_swh_formation(): Starting Breakout Monitor for SWH",webhook_name="banknifty"))
+            # Set event to notify other components
+            if direction == "Buy":
+                self.events["swh_formed"].set()                  
+                """Start  breakout monitor with SWH value"""
+                await self.breakout.monitor_breakouts(swh_price=poi)   
+            if direction == "Sell":
+                self.events["swl_formed"].set()                  
+                """Start  breakout monitor with SWL value"""
+                await self.breakout.monitor_breakouts(swh_price=poi)                   
+                
+        except Exception as e:
+            self.logger.error(f"run_bnf_breakout(): Error in breakout: {e}", exc_info=True)
+            await slack.send_message(f"run_bnf_breakout(): Error in breakout: {e}",webhook_name="banknifty")

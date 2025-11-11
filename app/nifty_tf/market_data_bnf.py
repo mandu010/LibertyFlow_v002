@@ -114,7 +114,7 @@ class LibertyMarketData:
             response = self.fyers.quotes(data={"symbols": symbol})
             if response.get('code') == 200 and response.get('d') and len(response['d']) > 0:
                 quote_data = response['d'][0].get('v', {})
-                self.logger.info(f"fetch_nifty_quote(): Fetched {self.symbol} Quote: LTP:{quote_data.get('lp')} ASK:{quote_data.get('ask')}")
+                self.logger.info(f"fetch_quick_quote(): Fetched {self.symbol} Quote: LTP:{quote_data.get('lp')} ASK:{quote_data.get('ask')}")
                 return {
                     'lp': quote_data.get('lp'),
                     'ask': quote_data.get('ask'),
@@ -122,10 +122,10 @@ class LibertyMarketData:
                 }
             else:
                 error_msg = response.get('message', 'Unknown error')
-                self.logger.error(f"fetch_nifty_quote(): API Error: {error_msg}")
+                self.logger.error(f"fetch_quick_quote(): API Error: {error_msg}")
                 return {'lp': None, 'ask': None}
         except Exception as e:
-            self.logger.error(f"fetch_nifty_quote(): Exception occurred: {str(e)}")
+            self.logger.error(f"fetch_quick_quote(): Exception occurred: {str(e)}")
             return {'lp': None, 'ask': None}                           
         
     async def insert_order_data(self, orderID):
