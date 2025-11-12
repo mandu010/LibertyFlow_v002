@@ -260,7 +260,7 @@ class LibertyTrigger():
             
         return time(new_hour, next_5min)
     
-    def dynamic_cbab_calculator(opening_percent, CBAB_value,
+    def dynamic_cbab_calculator(self, opening_percent, CBAB_value,
                                 gap_low=0.30, gap_high=1.00,
                                 CBAB_MIN_AT_LOW=300, CBAB_MIN_AT_HIGH=800,
                                 CBAB_MAX_AT_LOW=800, CBAB_MAX_AT_HIGH=1500):
