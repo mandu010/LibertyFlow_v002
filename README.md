@@ -166,7 +166,7 @@ python -m app.generate_token
 
 The Liberty Flow strategy follows a systematic approach:
 
-#### 1. **Trigger Phase** (9:15 AM - 12:25 AM)
+#### 1. **Trigger Phase** (9:15 AM - 12:25 PM)
    - **PCT Trigger**: Checks if price moves beyond a percentage threshold
    - **ATR Trigger**: Uses Average True Range for volatility-based trigger
    - **Range Trigger**: Monitors if price breaks out of defined range
@@ -189,7 +189,7 @@ The Liberty Flow strategy follows a systematic approach:
 #### 5. **Position Management**
    - Monitors position until exit conditions
    - Trails stop-loss as price moves favorably
-   - Auto-exits at 3:13 PM if position still open
+   - Auto-exits all and only INTRADAY orders at 3:13 PM if position still open
 
 ### Risk Management
 
