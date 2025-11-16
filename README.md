@@ -94,7 +94,7 @@ The system is built with Python using asynchronous programming (asyncio) for hig
 
 
 ### API Accounts
-- **Fyers Trading Account**: [Sign up here](https://fyers.in)
+- **Fyers Trading Account**: 
 - **Slack Workspace**: For notifications (optional but recommended)
 
 
