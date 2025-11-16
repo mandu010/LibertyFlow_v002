@@ -256,7 +256,7 @@ app/
 │   ├── handlers.py                  # Message handlers
 │   └── helpers.py                   # Helper functions
 │
-├── upstox/                          # Upstox broker integration (alternative)
+├── upstox/                          # Upstox broker integration (alternative) #To be used for getting Greeks from Upstox later on
 │   ├── __init__.py
 │   └── client.py                    # Upstox API client
 │
