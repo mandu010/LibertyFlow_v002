@@ -61,7 +61,7 @@ class LibertyMomentum_BNF:
 
             if not atrTrigger[0]:
                 return 0 ### Exiting
-            # return 0
+            return 0
 
             await asyncio.gather(
                 self.run_bnf_breakout(poi=poi,direction=direction)
