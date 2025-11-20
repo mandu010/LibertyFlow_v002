@@ -81,6 +81,7 @@ class LibertyTrigger():
 
             """Checking Criteria 2: Dynamic Calculation"""
             dynamic_cbab_calculator_result = self.dynamic_cbab_calculator(opening_percent=opening_percent, CBAB_value=atrVal)
+            self.logger.info(f"ATR(): dynamic_cbab_calculator_result(): {dynamic_cbab_calculator_result}")
             if dynamic_cbab_calculator_result:
                 return [True,direction,poi]
             else:
