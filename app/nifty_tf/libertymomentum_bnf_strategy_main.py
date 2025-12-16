@@ -59,13 +59,13 @@ class LibertyMomentum_BNF:
             poi = atrTrigger[2] ### Price of Interest
             asyncio.create_task(self.place_order.set_option_symbol_bnf(side=direction,ltp=float(poi)))
 
-            if not atrTrigger[0]:
-                return 0 ### Exiting
-            return 0
-
-            await asyncio.gather(
-                self.run_bnf_breakout(poi=poi,direction=direction)
-            )
+            """
+                Commented below to test if everything is working well tomorrow w/ 1 lot
+            """
+            # if not atrTrigger[0]:
+            #     return 0 ### Exiting
+            # # return 0
+            
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout",webhook_name="banknifty"))
 
@@ -73,11 +73,11 @@ class LibertyMomentum_BNF:
             breakout_timeout = time(10, 30)
             try:
                 # state = await self.breakout.wait_for_breakout()
-                state = await asyncio.wait_for(
-                    self.breakout.wait_for_breakout(), 
+                await asyncio.wait_for(
+                    self.run_bnf_breakout(poi=poi, direction=direction), 
                     timeout=self._get_seconds_until_time(breakout_timeout)
                 )
-                direction, price = state["direction"], state["price"]
+                # direction, price = state["direction"], state["price"]
             except asyncio.TimeoutError:
                 self.logger.info("Breakout timeout reached at 10:30 -> Exit")
                 await slack.send_message("Breakout timeout reached at 10:30 -> Exit",webhook_name="banknifty")
@@ -88,7 +88,7 @@ class LibertyMomentum_BNF:
             if direction == "Buy":
                 self.logger.info("direction: Buy")
                 asyncio.create_task(slack.send_message("Order Placed: Long",webhook_name="banknifty"))
-                symbol, orderID = await self.place_order.place_nifty_order_new(side="Buy")
+                symbol, orderID = await self.place_order.place_banknifty_order_new(side="Buy", ltp=float(poi))
                 self.logger.info(f"Output from place_order: {symbol} {orderID}")                
                 if symbol is None or orderID is None :
                     self.logger.error("Order placement failed - no order details returned.")
@@ -97,7 +97,7 @@ class LibertyMomentum_BNF:
             if direction == "Sell":
                 self.logger.info("direction: Sell")
                 asyncio.create_task(slack.send_message("Order Placed: Short",webhook_name="banknifty"))
-                symbol, orderID = await self.place_order.place_nifty_order_new(side="Sell")
+                symbol, orderID = await self.place_order.place_banknifty_order_new(side="Sell", ltp=float(poi))
                 self.logger.info(f"Output from place_order: {symbol} {orderID}")
                 if symbol is None or orderID is None :
                     self.logger.error("Order placement failed - no order details returned.")
@@ -105,7 +105,7 @@ class LibertyMomentum_BNF:
                     return 1
             
             ### Calling SL Method in BG
-            sl_task  = asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction))
+            sl_task  = asyncio.create_task(self.breakout.sl(symbol=symbol, side=direction, entry_price=poi))
             active_tasks.append(sl_task)
             self.logger.info(f"Called SL Method in Background for symbol: {symbol} and side: {direction}")
             await asyncio.sleep(5) # Waiting 5 seconds before starting trailing
@@ -280,7 +280,7 @@ class LibertyMomentum_BNF:
         """notify breakout when it forms"""
         try:
             self.logger.info("run_bnf_breakout(): Starting Breakout Monitoring")
-            asyncio.create_task(slack.send_message("run_swh_formation(): Starting Breakout Monitor for SWH",webhook_name="banknifty"))
+            asyncio.create_task(slack.send_message("run_bnf_breakout(): Starting Breakout Monitor for SWH",webhook_name="banknifty"))
             # Set event to notify other components
             if direction == "Buy":
                 self.events["swh_formed"].set()                  
@@ -290,6 +290,9 @@ class LibertyMomentum_BNF:
                 self.events["swl_formed"].set()                  
                 """Start  breakout monitor with SWL value"""
                 await self.breakout.monitor_breakouts(swh_price=poi)                   
+            # Wait for breakout to happen
+            await self.breakout.wait_for_breakout()
+            self.logger.info("run_bnf_breakout(): Breakout detected!")
                 
         except Exception as e:
             self.logger.error(f"run_bnf_breakout(): Error in breakout: {e}", exc_info=True)

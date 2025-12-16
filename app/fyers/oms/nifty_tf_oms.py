@@ -589,3 +589,96 @@ class Nifty_OMS:
                 self.logger.error(f"set_option_symbol_bnf(): Error Getting Symbol for {side} {ATM}. Error: {e}")
                 return None         
         return True   
+    
+    async def place_banknifty_order_new(self,side,ltp) -> str:
+        # This returns symbol and order date time, both in string
+        try:
+            try:
+                from app.config import settings
+                # dotenv_path = find_dotenv(filename="/mnt/LibertyFlow/LibertyFlow_v002/.env")
+                dotenv_path = "/mnt/LibertyFlow/LibertyFlow_v002/.env"
+                load_dotenv(dotenv_path, override=True)
+                if side == "Buy":
+                    symbol = os.getenv("BANKNIFTY_BUY_SYMBOL")
+                else:
+                    symbol = os.getenv("BANKNIFTY_BUY_SYMBOL")
+                if symbol is None or symbol == "":
+                    raise Exception("Symbol not found in .env file")
+            except Exception as e:
+                self.logger.error(f"place_banknifty_order_new(): Failed to Get Symbol from .env file. Error: {e}")
+                symbol = await self.set_option_symbol_bnf(side=side, ltp=float(ltp))
+            self.qty = settings.trade.BANKNIFTY_LOT * settings.trade.BANKNIFTY_LOT_SIZE
+            #Debugging settings
+            # symbol='NSE:SBIN-EQ' # Comment this later
+            # self.qty = 1 # Comment this later
+            self.logger.info(f"place_banknifty_order_new(): Placing order for: {symbol}")
+            initial_quote = await self.LibertyMarketData.fetch_quick_quote(symbol)
+            ask_price = initial_quote['ask']
+            limit_price = self.round_to_nearest_half(ask_price + ask_price * self.limit_price_pct) # Setting Limit Price at 1% of ask price
+            counter = 1
+            data={
+                'productType':self.nifty_product_type,
+                'side': self.buy_side,
+                'symbol': symbol,
+                'qty': self.qty,
+                'type': self.limit_type,
+                'validity':'DAY',
+                'limitPrice': limit_price,
+                'orderTag': 'BankNiftyTF'
+            }
+            response = self.fyers.place_order(data)
+            print(response)
+            if response['s'] == "ok":
+                order_id = response['id']
+                asyncio.create_task(self.LibertyMarketData.insert_order_data(orderID=order_id))
+            else:
+                self.logger.error("place_banknifty_order_new(): Failed to Place Order")
+                await slack.send_message(f"place_banknifty_order_new(): Failed to Place Order \n Place order manually for {symbol} Response: {response}")
+                return None, None
+            
+            self.logger.info(f"place_banknifty_order_new(): Order Placed. Response:{response}\n")
+
+            await asyncio.sleep(3.5)  # Waiting for a second for order to process, maybe will need to increase later
+            placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+            print(f"placed_order_status:{placed_order_status}, {type(placed_order_status)}")
+            if placed_order_status == 2:
+                await slack.send_message(f"place_banknifty_order_new(): Order Filled Successfully for {symbol} Response: {response}")
+                return symbol,order_id
+            else:
+                while counter < 6:
+                    counter += 1
+                    placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)                         
+                    if placed_order_status == 2:
+                        await slack.send_message(f"place_banknifty_order_new(): Order Filled Successfully for {symbol}")
+                        return symbol,order_id
+                    fresh_quote = await self.LibertyMarketData.fetch_quick_quote(symbol) ### Getting new quote
+                    ask_price = fresh_quote['ask']                                        
+                    limit_price = self.round_to_nearest_half(ask_price + ask_price * (self.limit_price_pct * counter))
+                    data = {
+                            "id":order_id, 
+                            "type":self.limit_type, 
+                            "limitPrice": limit_price
+                        }
+                    self.fyers.modify_order(data=data) ### Not Error Checking here
+                    await asyncio.sleep(5)
+                # Going for Market Order
+                self.logger.info("place_banknifty_order_new(): Going for Market Order")
+                data = {
+                        "id":order_id, 
+                        "type":self.market_type # <- Market Order
+                    }  
+                self.fyers.modify_order(data=data) ### Not Error Checking here
+                await asyncio.sleep(2)
+                placed_order_status = await self.LibertyMarketData.fetch_quick_order_status(orderID=order_id)
+                if placed_order_status == 2:
+                    await slack.send_message(f"place_banknifty_order_new(): Exited At Market Price Successfully for {symbol}.")
+                    return symbol,order_id                     
+                else:
+                    self.logger.error("place_banknifty_order_new(): Failed to Place Order")
+                    await slack.send_message(f"place_banknifty_order_new(): Failed to Place Order at Market \n Place order manually for {symbol}")
+                    return None, None               
+
+        except Exception as e:
+            print(f"Error: {e}")
+            self.logger.error(f"place_banknifty_order_new(): {e}")
+            return None, None    

@@ -195,13 +195,13 @@ class LibertyBreakout:
             self.state["direction"] = direction
             self.state["price"] = price
 
+            # signal the asyncio waiter
+            loop.call_soon_threadsafe(done_event.set)
+
             try:
                 ws.unsubscribe(symbols=[self.futures_symbol], data_type="SymbolUpdate")
             except Exception as e:
                 self.logger.error(f"Error unsubscribing: {e}")
-
-            # signal the asyncio waiter
-            loop.call_soon_threadsafe(done_event.set)
 
         def on_error(err):
             self.logger.error(f"WebSocket error: {err}")
@@ -227,15 +227,15 @@ class LibertyBreakout:
         )
         ws.connect()  # blocks until closed
 
-    async def sl(self, side, symbol):
+    async def sl(self, side, symbol, entry_price):
         try:
             if side == "Buy":
-                entry_price = await self.db.fetch_swing_price(swing="swhPrice")
+                # entry_price = await self.db.fetch_swing_price(swing="swhPrice")
                 if entry_price is None:
                     raise Exception("swhPrice not found in database")
                 sl_price = round(entry_price - (entry_price * self.sl_percent))            
             else:  # Sell
-                entry_price = await self.db.fetch_swing_price(swing="swlPrice")
+                # entry_price = await self.db.fetch_swing_price(swing="swlPrice")
                 if entry_price is None:
                     raise Exception("swlPrice not found in database")
                 sl_price = round(entry_price + (entry_price * self.sl_percent))
