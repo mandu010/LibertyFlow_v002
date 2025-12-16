@@ -48,7 +48,7 @@ class LibertyMomentum_BNF:
 
             """Waiting 15 seconds, Getting PCT Trigger at 9.16 AM"""
             await asyncio.sleep(15)
-
+            """ATR Check"""
             pctTrigger = await self.trigger.pct_trigger(range_val)
             # if not pctTrigger[0]:
             #     return 1 ### Exiting Whole Application # Will Comment this to check daily for ATR passings and other tests
@@ -61,7 +61,7 @@ class LibertyMomentum_BNF:
 
             if not atrTrigger[0]:
                 return 0 ### Exiting
-            # return 0
+            return 0
 
             await asyncio.gather(
                 self.run_bnf_breakout(poi=poi,direction=direction)
