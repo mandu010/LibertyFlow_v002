@@ -289,7 +289,7 @@ class LibertyMomentum_BNF:
             if direction == "Sell":
                 self.events["swl_formed"].set()                  
                 """Start  breakout monitor with SWL value"""
-                await self.breakout.monitor_breakouts(swh_price=poi)                   
+                await self.breakout.monitor_breakouts(swl_price=poi)                   
             # Wait for breakout to happen
             await self.breakout.wait_for_breakout()
             self.logger.info("run_bnf_breakout(): Breakout detected!")
