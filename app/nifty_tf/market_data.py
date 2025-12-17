@@ -39,10 +39,12 @@ class LibertyMarketData:
             self.logger.error(f"fetch_5min_data(): Error fetching range from DB: {e}", exc_info=True)
             return None 
                    
-    async def fetch_1min_data(self):
+    async def fetch_1min_data(self, symbol=None):
         try:
+            if symbol is None:
+                symbol = self.symbol
             data={
-                  "symbol":self.symbol,
+                  "symbol":symbol,
                   "resolution":"1",
                   "date_format":"1",
                   "range_from":datetime.now().strftime('%Y-%m-%d'),

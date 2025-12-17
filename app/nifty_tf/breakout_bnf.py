@@ -390,14 +390,14 @@ class LibertyBreakout:
                         if self.sl_state["exit_executed"]:
                             self.logger.info("SL hit during trailing, stopping trailing logic")
                             return                    
-                    min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                    min1_data_df = await self.LibertyMarketData.fetch_1min_data(symbol=self.symbol)
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
 
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)                        
-                        min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                        min1_data_df = await self.LibertyMarketData.fetch_1min_data(symbol=self.symbol)
                         min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         filtered_df = min1_data_df[min1_data_df['timestamp'] > order_time] # Checking from next minute of Order time stamp
 
@@ -429,14 +429,14 @@ class LibertyBreakout:
                         if self.sl_state["exit_executed"]:
                             self.logger.info("SL hit during trailing, stopping trailing logic")
                             return                    
-                    min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                    min1_data_df = await self.LibertyMarketData.fetch_1min_data(symbol=self.symbol)
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
 
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)
-                        min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                        min1_data_df = await self.LibertyMarketData.fetch_1min_data(symbol=self.symbol)
                         min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
 
@@ -510,14 +510,14 @@ class LibertyBreakout:
                         if self.sl_state["exit_executed"]:
                             self.logger.info("SL hit during trailing, stopping trailing logic")
                             return                    
-                    min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                    min1_data_df = await self.LibertyMarketData.fetch_1min_data(symbol=self.symbol)
                     min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                     filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]
 
                     if not len(filtered_df[1:]) > 0:
                         next_check = await self.trigger.get_next_1min_interval()
                         await self.trigger.wait_until_time(next_check)
-                        min1_data_df = await self.LibertyMarketData.fetch_1min_data()
+                        min1_data_df = await self.LibertyMarketData.fetch_1min_data(symbol=self.symbol)
                         min1_data_df['timestamp'] = pd.to_datetime(min1_data_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
                         filtered_df = min1_data_df[min1_data_df['timestamp'] >= order_time]                        
                     
