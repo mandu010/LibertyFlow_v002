@@ -385,6 +385,8 @@ class Nifty_OMS:
             bid_price = initial_quote['bid']
             limit_price = self.round_to_nearest_half(bid_price - bid_price * self.limit_price_pct) # Setting Limit Price at 0.5% of bid price
             counter = 1
+            if "BANK" in symbol:
+                self.qty = settings.trade.BANKNIFTY_LOT * settings.trade.BANKNIFTY_LOT_SIZE
             data={
                 'productType':self.nifty_product_type,
                 'side': self.sell_side,
