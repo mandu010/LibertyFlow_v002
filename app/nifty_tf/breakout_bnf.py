@@ -357,7 +357,7 @@ class LibertyBreakout:
             self.logger.info(f"No trailing required for {new_sl_price}")
 
 
-    async def trail_sl(self, orderID):        
+    async def trail_sl(self, orderID, entry_price):        
         try:
             self.logger.info(f"trail_sl(): Order ID Received: {orderID} Type: {type(orderID)}")
             order_time = await self.db.fetch_timestamp(str(orderID))
@@ -375,10 +375,12 @@ class LibertyBreakout:
                     return                
             self.logger.info(f"trail_sl(): Starting SL monitor for {side} position")        
             if side == "Buy":
-                entry_price = await self.db.fetch_swing_price(swing="swhPrice") + 1
+                # entry_price = await self.db.fetch_swing_price(swing="swhPrice") + 1
+                entry_price = entry_price + 1
                 initial_sl_points = round(abs(entry_price - initial_sl_price))
             else:
-                entry_price = await self.db.fetch_swing_price(swing="swlPrice") - 1
+                # entry_price = await self.db.fetch_swing_price(swing="swlPrice") - 1
+                entry_price = entry_price - 1
                 initial_sl_points = round(abs(initial_sl_price - entry_price))
 
             maxRR = 0

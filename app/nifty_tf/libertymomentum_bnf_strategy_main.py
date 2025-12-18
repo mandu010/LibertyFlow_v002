@@ -62,9 +62,9 @@ class LibertyMomentum_BNF:
             """
                 Commented below to test if everything is working well tomorrow w/ 1 lot
             """
-            # if not atrTrigger[0]:
-            #     return 0 ### Exiting
-            # # return 0
+            if not atrTrigger[0]:
+                return 0 ### Exiting
+            # # return 0 # Use this to terminate app here
             
             self.logger.info("Awaiting Breakout")
             asyncio.create_task(slack.send_message("Awaiting Breakout",webhook_name="banknifty"))
@@ -72,7 +72,6 @@ class LibertyMomentum_BNF:
             # Timeout Timing for Breakout
             breakout_timeout = time(10, 30)
             try:
-                # state = await self.breakout.wait_for_breakout()
                 await asyncio.wait_for(
                     self.run_bnf_breakout(poi=poi, direction=direction), 
                     timeout=self._get_seconds_until_time(breakout_timeout)
@@ -83,7 +82,6 @@ class LibertyMomentum_BNF:
                 await slack.send_message("Breakout timeout reached at 10:30 -> Exit",webhook_name="banknifty")
                 await self.db.update_status(status='Exited - No Breakout by 10:30')
                 return 1
-
 
             if direction == "Buy":
                 self.logger.info("direction: Buy")
@@ -109,7 +107,7 @@ class LibertyMomentum_BNF:
             active_tasks.append(sl_task)
             self.logger.info(f"Called SL Method in Background for symbol: {symbol} and side: {direction}")
             await asyncio.sleep(5) # Waiting 5 seconds before starting trailing
-            trailing_task = asyncio.create_task(self.breakout.trail_sl(orderID))
+            trailing_task = asyncio.create_task(self.breakout.trail_sl(orderID, entry_price=poi))
             active_tasks.append(trailing_task)
 
             ### Waiting for SL or Market Close
