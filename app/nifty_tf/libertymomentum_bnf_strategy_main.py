@@ -50,8 +50,8 @@ class LibertyMomentum_BNF:
             await asyncio.sleep(15)
             """ATR Check"""
             pctTrigger = await self.trigger.pct_trigger(range_val)
-            if not pctTrigger[0]:
-                return 0 ### Exiting Whole Application # Will Comment this to check daily for ATR passings and other tests
+            #if not pctTrigger[0]:
+            #    return 0 ### Exiting Whole Application # Will Comment this to check daily for ATR passings and other tests
             
             """ATR Check"""
             atrTrigger = await self.trigger.ATR(opening_percent=pctTrigger[1])
@@ -62,7 +62,7 @@ class LibertyMomentum_BNF:
             """
                 Commented below to test if everything is working well tomorrow w/ 1 lot
             """
-            if not atrTrigger[0]:
+            if not atrTrigger[0] and not pctTrigger[0]: # Both should be True
                 return 0 ### Exiting
             # # return 0 # Use this to terminate app here
             
