@@ -62,7 +62,7 @@ class LibertyMomentum_BNF:
             """
                 Commented below to test if everything is working well tomorrow w/ 1 lot
             """
-            print(f"atrTrigger[0]:{atrTrigger[0} pctTrigger[0]:{pctTrigger[0]}")
+            print(f"atrTrigger[0]:{atrTrigger[0]} pctTrigger[0]:{pctTrigger[0]}")
             if not atrTrigger[0] and not pctTrigger[0]: # Both should be True
                 return 0 ### Exiting
             # # return 0 # Use this to terminate app here
