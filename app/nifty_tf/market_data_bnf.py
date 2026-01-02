@@ -160,3 +160,27 @@ class LibertyMarketData:
         except Exception as e:
             self.logger.error(f"fetch_quick_order_status(): Exception occurred: {str(e)}")
             return 0
+
+    async def fetch_prevDay_1D_data(self):
+        try:
+            for i in builtins.range(1, 6):
+                data={
+                        "symbol":self.symbol,
+                        "resolution":"1D",
+                        "date_format":"1",
+                        "range_from":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                        "range_to":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                        "cont_flag":1
+                        }                   
+                day_data_prevDay = self.fyers.history(data)
+                if day_data_prevDay['code'] == 200  and "candles" in day_data_prevDay and day_data_prevDay['s'] !="no_data":
+                    self.logger.info(f"fetch_prevDay_1D_data(): Fetched previous day's 1D candle data.")
+                    df_prevDay = pd.DataFrame(
+                        day_data_prevDay["candles"], 
+                        columns=["timestamp", "open", "high", "low", "close", "volume"]
+                        )
+                    break
+            return  df_prevDay  
+        except Exception as e:
+            self.logger.error(f"fetch_prevDay_1D_data(): Error fetching data from Fyers: {e}", exc_info=True)
+            return None 

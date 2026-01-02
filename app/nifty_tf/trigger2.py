@@ -29,6 +29,11 @@ class LibertyTrigger():
             min1_df = await self.LibertyMarketData.fetch_1min_data()
             min1_df['timestamp'] = pd.to_datetime(min1_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
 
+            # Getting Previous Day DF
+            prevDay_df = await self.LibertyMarketData.fetch_prevDay_1D_data()
+            prevDay_df['timestamp'] = pd.to_datetime(prevDay_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+            pdc = prevDay_df.iloc[0]['close']            
+
             sqlTrue = f'''UPDATE nifty.trigger_status 
             SET "pct_trigger" = TRUE, "trigger_index" = 0, "trigger_time" = '09:15:00', "swhTime" = '09:15:00', "swlTime" = '09:15:00'
             WHERE date = CURRENT_DATE '''
@@ -36,7 +41,8 @@ class LibertyTrigger():
             SET "pct_trigger" = FALSE
             WHERE date = CURRENT_DATE '''
             
-            change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
+            # change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
+            change = round((min1_df.iloc[0]['open'] - pdc) / pdc * 100, 2)
             asyncio.create_task(slack.send_message(f"Percent Change is {change}"))
             if change >= 0.4:
                 self.logger.info(f"pct_trigger(): Triggered. Percent Change is {change}")
@@ -269,3 +275,27 @@ class LibertyTrigger():
             next_5min -= 60
             
         return time(new_hour, next_5min)
+    
+    async def fetch_prevDay_1D_data(self):
+        try:
+            for i in builtins.range(1, 6):
+                data={
+                        "symbol":self.symbol,
+                        "resolution":"1D",
+                        "date_format":"1",
+                        "range_from":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                        "range_to":(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                        "cont_flag":1
+                        }                   
+                day_data_prevDay = self.fyers.history(data)
+                if day_data_prevDay['code'] == 200  and "candles" in day_data_prevDay and day_data_prevDay['s'] !="no_data":
+                    self.logger.info(f"fetch_prevDay_1D_data(): Fetched previous day's 1D candle data.")
+                    df_prevDay = pd.DataFrame(
+                        day_data_prevDay["candles"], 
+                        columns=["timestamp", "open", "high", "low", "close", "volume"]
+                        )
+                    break
+            return  df_prevDay  
+        except Exception as e:
+            self.logger.error(f"fetch_prevDay_1D_data(): Error fetching data from Fyers: {e}", exc_info=True)
+            return None    

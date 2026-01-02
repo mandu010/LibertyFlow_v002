@@ -28,8 +28,14 @@ class LibertyTrigger():
                     break            
             min1_df = await self.LibertyMarketData.fetch_1min_data()
             min1_df['timestamp'] = pd.to_datetime(min1_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+
+            # Getting Previous Day DF
+            prevDay_df = await self.LibertyMarketData.fetch_prevDay_1D_data()
+            prevDay_df['timestamp'] = pd.to_datetime(prevDay_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Kolkata')
+            pdc = prevDay_df.iloc[0]['close']
             
-            change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
+            # change = round((min1_df.iloc[0]['open'] - range['pdc']) / range['pdc'] * 100, 2)
+            change = round((min1_df.iloc[0]['open'] - pdc) / pdc * 100, 2)
             asyncio.create_task(slack.send_message(f"Percent Change is {change}",webhook_name="banknifty"))
             if change >= 0.3 and change <= 1.0:
                 self.logger.info(f"pct_trigger(): Triggered. Percent Change is {change}")
