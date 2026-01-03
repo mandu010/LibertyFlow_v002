@@ -12,7 +12,7 @@ from app.slack import slack
 
 class LibertyMomentum_BNF:
     def __init__(self, db, fyers):
-        self.logger= get_logger("LibertyMomentum_BNF")
+        self.logger= get_logger("LibertyMomentum_StrategyMain_BNF", strategy_name="banknifty")
         self.db= db
         self.fyers= fyers
         self.range = LibertyRange(db, fyers)

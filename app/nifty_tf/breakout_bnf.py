@@ -14,7 +14,7 @@ from app.nifty_tf.trigger import LibertyTrigger
 
 class LibertyBreakout:
     def __init__(self, db, fyers):
-        self.logger = get_logger("LibertyBreakout_bnf")
+        self.logger = get_logger("LibertyBreakout_bnf", strategy_name="banknifty")
         self.db = db
         self.fyers = fyers
         self.symbol = settings.trade.BANKNIFTY_SYMBOL

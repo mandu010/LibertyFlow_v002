@@ -13,7 +13,7 @@ from app.nifty_tf.libertymomentum_bnf_strategy_main import LibertyMomentum_BNF
 from app.slack import slack
 
 # global logger
-logger = get_logger("LibertyMomentum_BNF_MAIN")
+logger = get_logger("LibertyMomentum_BNF_MAIN", strategy_name="banknifty")
 
 # Global flags for clean shutdown
 shutdown_requested = False
@@ -88,7 +88,8 @@ async def main():
         logger.info("Connecting to database...")
         await db.connect()
         logger.info("Database connection established")
-        
+
+
         # Initialize Fyers client
         logger.info("Initializing Fyers client...")
         fyers = await fyersClient.connect()

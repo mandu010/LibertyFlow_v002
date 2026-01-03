@@ -12,7 +12,7 @@ from app.slack import slack
 
 class LibertyTrigger():
     def __init__(self, db, fyers):
-        self.logger = get_logger("LibertyTrigger_Bnf")
+        self.logger = get_logger("LibertyTrigger_Bnf", strategy_name="banknifty")
         self.db = db
         self.fyers = fyers
         self.LibertyMarketData = LibertyMarketData(db, fyers)

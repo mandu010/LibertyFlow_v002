@@ -20,7 +20,7 @@ class NumpyEncoder(json.JSONEncoder):
 
 class LibertyRange:
     def __init__(self, db, fyers):
-        self.logger= get_logger("bnf_range")
+        self.logger= get_logger("bnf_range", strategy_name="banknifty")
         self.db= db
         self.fyers= fyers
         self.symbol = settings.trade.BANKNIFTY_SYMBOL
