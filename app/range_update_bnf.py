@@ -13,7 +13,7 @@ from app.nifty_tf.strategy_main import LibertyFlow
 from app.nifty_tf.range_bnf import LibertyRange
 from app.slack import slack
 
-logger = get_logger("RANGE_UPDATE_BNF")
+logger = get_logger("RANGE_UPDATE_BNF", strategy_name="banknifty")
 
 def today_holiday():
     """
@@ -22,6 +22,7 @@ def today_holiday():
     """
     # List of holiday dates
     holiday_dates = [
+        date(2026, 1, 15),   # 15-Jan-2026 Municipal Corporation Holiday
         date(2026, 1, 26),   # 26-Jan-2026
         date(2026, 3, 3),    # 03-Mar-2026
         date(2026, 3, 26),   # 26-Mar-2026

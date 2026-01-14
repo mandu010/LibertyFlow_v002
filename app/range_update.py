@@ -22,6 +22,7 @@ def today_holiday():
     """
     # List of holiday dates
     holiday_dates = [
+        date(2026, 1, 15),   # 15-Jan-2026 Municipal Corporation Holiday
         date(2026, 1, 26),   # 26-Jan-2026
         date(2026, 3, 3),    # 03-Mar-2026
         date(2026, 3, 26),   # 26-Mar-2026
